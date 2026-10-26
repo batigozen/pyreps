@@ -1,0 +1,35 @@
+{
+  "status": "success",
+  "data": {
+    "resultType": "vector",
+    "result": [
+      {
+        "metric": {
+          "trunk": "ic-ams-01"
+        },
+        "value": [
+          1761037200,
+          "0.031"
+        ]
+      },
+      {
+        "metric": {
+          "trunk": "ic-rtd-02"
+        },
+        "value": [
+          1761037200,
+          "0.142"
+        ]
+      },
+      {
+        "metric": {
+          "trunk": "biz-trunk-07"
+        },
+        "value": [
+          1761037200,
+          "0.004"
+        ]
+      }
+    ]
+  }
+}

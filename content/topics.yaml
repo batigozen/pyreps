@@ -1,0 +1,25 @@
+# Topics in course order. `module` = module number in the "Python for Voice DevOps" course.
+- { id: setup,       module: 1,  order: 1,  title: "Script shape, __name__, exit codes" }
+- { id: dicts,       module: 2,  order: 2,  title: "Dictionaries in depth" }
+- { id: unpack,      module: 3,  order: 3,  title: "Unpacking with * and **" }
+- { id: iter,        module: 4,  order: 4,  title: "Comprehensions and generators" }
+- { id: functions,   module: 5,  order: 5,  title: "Functions and decorators" }
+- { id: classes,     module: 6,  order: 6,  title: "Classes: the basics" }
+- { id: dunders,     module: 7,  order: 7,  title: "Special (dunder) methods" }
+- { id: dataclasses, module: 8,  order: 8,  title: "Dataclasses, enums, inheritance" }
+- { id: text,        module: 9,  order: 9,  title: "f-strings, regex, JSON, CSV, dates" }
+- { id: errors,      module: 10, order: 10, title: "Errors and logging" }
+- { id: systems,     module: 11, order: 11, title: "Env vars, subprocess, HTTP" }
+- { id: cli,         module: 12, order: 12, title: "argparse and exit codes" }
+# --- Domain decks: same language features, broader real-world contexts ---
+# Telecom stays the main track (topics above). These add networking, web,
+# security, data and automation so Python transfers to interviews and personal
+# projects. Everything must run offline (no real sockets or network): build and
+# parse bytes, do address math, hash and encode, and use the request/response
+# fakes rather than live connections.
+- { id: net,         module: 13, order: 13, title: "Networking: sockets, struct, ipaddress" }
+- { id: web,         module: 14, order: 14, title: "HTTP and APIs: requests patterns, URLs, JSON" }
+- { id: security,    module: 15, order: 15, title: "Security basics: hashing, encoding, secrets" }
+- { id: data,        module: 16, order: 16, title: "Files, paths and data wrangling" }
+- { id: automation,  module: 17, order: 17, title: "CLIs, subprocess and scheduling scripts" }
+- { id: concurrency, module: 18, order: 18, title: "Concurrency: threads, futures, async basics" }

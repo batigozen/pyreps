@@ -1,0 +1,136 @@
+# SEED CARDS (examples of every type). Claude Code extends this file to ~20 cards.
+- id: dicts-predict-get-default
+  type: predict
+  topic: dicts
+  level: 1
+  prompt: What does this print?
+  code: |
+    cdr = {"call_id": "c1001", "trunk": "ic-rtd-02", "sip_code": "480"}
+    print(cdr.get("reason"), cdr.get("reason", "unknown"), "sip_code" in cdr)
+  answer: None unknown True
+  explain: >-
+    .get() returns None for a missing key, or the default you pass as the second argument.
+    `in` checks keys, and "sip_code" is a key. Neither call adds "reason" to the dict.
+  tags: [get, in]
+
+- id: dicts-mcq-keyerror
+  type: mcq
+  topic: dicts
+  level: 1
+  prompt: "cdr has no key \"reason\". What happens with cdr[\"reason\"]?"
+  options:
+    - It returns None
+    - It raises KeyError
+    - It returns an empty string
+    - It adds the key with value None
+  correct: 1
+  explain: >-
+    Square brackets fail loudly on a missing key. Use cdr.get("reason", default) when the key
+    may be missing, and cdr["reason"] when a missing key is a bug you want to see.
+  tags: [keyerror]
+
+- id: dicts-fill-count-get
+  type: fill
+  topic: dicts
+  level: 1
+  prompt: Complete the counter so each SIP code is counted.
+  code: |
+    codes = ["200", "503", "200", "486", "200"]
+    counts = {}
+    for code in codes:
+        counts[code] = counts.____(code, 0) + 1
+    print(counts)
+  blanks:
+    - answer: get
+      options: [get, setdefault, pop, items]
+  expected_output: "{'200': 3, '503': 1, '486': 1}"
+  explain: >-
+    counts.get(code, 0) gives 0 the first time a code is seen, so the + 1 always works.
+    collections.Counter(codes) does the same in one call.
+  tags: [get, counting]
+
+- id: dicts-spotbug-sort-by-value
+  type: spot_bug
+  topic: dicts
+  level: 2
+  prompt: This should list trunks from worst to best ASR. Tap the line with the bug.
+  code: |
+    asr = {"ic-ams-01": 0.588, "ic-rtd-02": 0.4, "biz-trunk-07": 0.812}
+    worst_first = sorted(asr.items(), key=lambda item: item[0])
+    for trunk, value in worst_first:
+        print(trunk, f"{value:.0%}")
+  bug_line: 2
+  fixed_code: |
+    asr = {"ic-ams-01": 0.588, "ic-rtd-02": 0.4, "biz-trunk-07": 0.812}
+    worst_first = sorted(asr.items(), key=lambda item: item[1])
+    for trunk, value in worst_first:
+        print(trunk, f"{value:.0%}")
+  expected_output: |
+    ic-rtd-02 40%
+    ic-ams-01 59%
+    biz-trunk-07 81%
+  explain: >-
+    Each item is a (trunk, value) tuple. item[0] sorts alphabetically by trunk name;
+    item[1] sorts by the ASR value, which is what "worst first" needs.
+  tags: [sorted, items, lambda]
+
+- id: dicts-parsons-group-by-trunk
+  type: parsons
+  topic: dicts
+  level: 2
+  prompt: Put the lines in order to count calls per trunk with a defaultdict.
+  setup: |
+    from voicelab import load_cdrs
+    rows = load_cdrs()
+  lines:
+    - "from collections import defaultdict"
+    - "per_trunk = defaultdict(int)"
+    - "for row in rows:"
+    - "    per_trunk[row[\"trunk\"]] += 1"
+    - "print(dict(sorted(per_trunk.items())))"
+  distractors:
+    - "per_trunk = {}"
+    - "    per_trunk.append(row[\"trunk\"])"
+  expected_output: "{'biz-trunk-07': 16, 'ic-ams-01': 17, 'ic-rtd-02': 15}"
+  explain: >-
+    defaultdict(int) starts every new key at 0, so += 1 never raises KeyError.
+    A plain {} would fail on the first trunk. Dicts have no .append().
+  tags: [defaultdict]
+
+- id: dicts-write-asr-per-trunk
+  type: write
+  topic: dicts
+  level: 2
+  prompt: "Return {trunk: answered / attempts} for every trunk. Answered means sip_code == \"200\"."
+  starter: |
+    from voicelab import load_cdrs
+    rows = load_cdrs()
+
+    def asr_per_trunk(rows):
+        # your code here
+        return {}
+
+    print(asr_per_trunk(rows))
+  tests: |
+    r = asr_per_trunk(rows)
+    check(lambda: set(r) == {"ic-ams-01", "ic-rtd-02", "biz-trunk-07"}, "there should be 3 trunks")
+    check(lambda: abs(r["ic-rtd-02"] - 6 / 15) < 1e-9, "ic-rtd-02: 6 of 15 answered = 0.4")
+    check(lambda: asr_per_trunk([]) == {}, "no rows should give {}")
+  hint: Count attempts and answered per trunk in two defaultdict(int), then build the result with a dict comprehension.
+  solution: |
+    from collections import defaultdict
+    from voicelab import load_cdrs
+    rows = load_cdrs()
+
+    def asr_per_trunk(rows):
+        attempts, answered = defaultdict(int), defaultdict(int)
+        for r in rows:
+            attempts[r["trunk"]] += 1
+            answered[r["trunk"]] += r["sip_code"] == "200"
+        return {t: answered[t] / n for t, n in attempts.items()}
+
+    print(asr_per_trunk(rows))
+  explain: >-
+    True counts as 1 when added to an int, so `answered[t] += r["sip_code"] == "200"` adds 1
+    only for answered calls.
+  tags: [defaultdict, comprehension]

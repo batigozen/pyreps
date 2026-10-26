@@ -1,0 +1,114 @@
+- id: unpack-predict-star-rest
+  type: predict
+  topic: unpack
+  level: 1
+  prompt: What does this print?
+  code: |
+    codes = [200, 486, 503, 200, 480]
+    first, *rest = codes
+    head, *_, last = codes
+    print(first, len(rest), last)
+  answer: 200 4 480
+  explain: >-
+    *rest collects everything after the first item into a list (4 items).
+    In head, *_, last the star collects the middle, and last is the final item.
+  tags: [star]
+
+- id: unpack-predict-merge-dicts
+  type: predict
+  topic: unpack
+  level: 1
+  prompt: What does this print?
+  code: |
+    defaults = {"threshold": 0.65, "timeout": 5}
+    from_env = {"threshold": 0.6}
+    cfg = {**defaults, **from_env}
+    print(cfg["threshold"], cfg["timeout"], defaults["threshold"])
+  answer: 0.6 5 0.65
+  options: ["0.6 5 0.65", "0.65 5 0.65", "0.6 5 0.6", "0.65 5 0.6"]
+  explain: >-
+    Later keys win while the new dict is built, so threshold is 0.6. The original
+    defaults dict isn't changed: {**a, **b} builds a new dict.
+  tags: [double-star, merge]
+
+- id: unpack-fill-call-kwargs
+  type: fill
+  topic: unpack
+  level: 1
+  prompt: Pass the settings dict as keyword arguments.
+  code: |
+    def connect(host, port, user, timeout=5):
+        print(f"{user}@{host}:{port} timeout={timeout}")
+
+    settings = {"host": "cdr-db", "port": 5432, "user": "oss"}
+    connect(____settings, timeout=10)
+  blanks:
+    - answer: "**"
+      options: ["**", "*", "&", "..."]
+  expected_output: oss@cdr-db:5432 timeout=10
+  explain: >-
+    ** spreads a dict into keyword arguments whose names match the keys.
+    One * would spread the KEYS as positional arguments.
+  tags: [double-star, call]
+
+- id: unpack-mcq-args-type
+  type: mcq
+  topic: unpack
+  level: 1
+  prompt: Inside def f(*args, **kwargs), called as f(1, 2, x=3), what are args and kwargs?
+  options:
+    - "args = [1, 2], kwargs = {'x': 3}"
+    - "args = (1, 2), kwargs = {'x': 3}"
+    - "args = (1, 2, 3), kwargs = {}"
+    - "args = {'x': 3}, kwargs = (1, 2)"
+  correct: 1
+  explain: Extra positional arguments are collected in a tuple; extra keyword arguments in a dict.
+  tags: [args, kwargs]
+
+- id: unpack-spotbug-single-star
+  type: spot_bug
+  topic: unpack
+  level: 2
+  prompt: The log line should show the real host. Tap the buggy line.
+  code: |
+    def describe(host, port):
+        return f"{host}:{port}"
+
+    target = {"host": "prometheus.monitoring", "port": 9090}
+    print(describe(*target))
+  bug_line: 5
+  fixed_code: |
+    def describe(host, port):
+        return f"{host}:{port}"
+
+    target = {"host": "prometheus.monitoring", "port": 9090}
+    print(describe(**target))
+  expected_output: prometheus.monitoring:9090
+  explain: >-
+    *target spreads the dict's KEYS, so describe("host", "port") printed "host:port".
+    **target spreads key=value pairs.
+  tags: [star, double-star]
+
+- id: unpack-write-kubectl-args
+  type: write
+  topic: unpack
+  level: 2
+  prompt: Turn keyword flags into kubectl arguments.
+  starter: |
+    def kubectl_args(verb, resource, **flags):
+        """kubectl_args("get", "pods", namespace="voice-oss", output="json")
+        -> ["get", "pods", "--namespace=voice-oss", "--output=json"]"""
+        return []
+
+    print(kubectl_args("get", "pods", namespace="voice-oss", output="json"))
+  tests: |
+    check(lambda: kubectl_args("get", "pods", namespace="voice-oss", output="json") == ["get", "pods", "--namespace=voice-oss", "--output=json"], "docstring example")
+    check(lambda: kubectl_args("describe", "pod") == ["describe", "pod"], "no flags -> just verb and resource")
+  hint: flags is a dict. Build f"--{k}={v}" for each item and spread that list into the result with *.
+  solution: |
+    def kubectl_args(verb, resource, **flags):
+        return [verb, resource, *[f"--{k}={v}" for k, v in flags.items()]]
+
+    print(kubectl_args("get", "pods", namespace="voice-oss", output="json"))
+  explain: "[*a, *b] builds one list from two; **flags collected the keyword arguments into a dict."
+  tags: [kwargs, star]

@@ -1,0 +1,162 @@
+# NETWORKING deck. Offline-safe only: no real sockets or DNS. Teach struct
+# (binary packets), ipaddress (subnet math), and parsing bytes. The live-socket
+# version of each idea goes in the card's `explain` as "on a real machine ...".
+- id: net-predict-ipaddress-network
+  type: predict
+  topic: net
+  level: 1
+  prompt: What does this print?
+  code: |
+    import ipaddress
+    net = ipaddress.ip_network("10.244.2.0/24")
+    print(net.network_address, net.broadcast_address, net.num_addresses)
+  answer: 10.244.2.0 10.244.2.255 256
+  explain: >-
+    ip_network parses CIDR and does the subnet math for you: the /24 means 256
+    addresses, from .0 to .255. This is the module you reach for instead of
+    splitting strings on dots. A pod's IP like 10.244.2.17 lives in this network.
+  tags: [ipaddress]
+
+- id: net-predict-ip-in-network
+  type: predict
+  topic: net
+  level: 1
+  prompt: What does this print?
+  code: |
+    import ipaddress
+    net = ipaddress.ip_network("192.168.10.0/28")
+    addr = ipaddress.ip_address("192.168.10.20")
+    print(addr in net, net.num_addresses)
+  answer: "False 16"
+  options: ["False 16", "True 16", "False 256", "True 14"]
+  explain: >-
+    A /28 holds 16 addresses (.0 to .15), so .20 is outside it. `addr in net` is
+    the clean way to test membership, for example "is this client in the allowed
+    range?". No manual bit math needed.
+  tags: [ipaddress]
+
+- id: net-mcq-struct-why
+  type: mcq
+  topic: net
+  level: 1
+  prompt: Why use struct.pack / struct.unpack when working with a network protocol?
+  options:
+    - To make strings shorter
+    - To convert between Python values and the exact bytes a protocol defines
+    - To encrypt the data
+    - To speed up loops
+  correct: 1
+  explain: >-
+    Protocols (DNS, TCP/IP headers, RTP) are defined as exact byte layouts.
+    struct maps Python numbers to and from those bytes, with the right size and
+    byte order. ">" means big-endian, which networks use ("network byte order").
+  tags: [struct]
+
+- id: net-predict-struct-pack
+  type: predict
+  topic: net
+  level: 2
+  prompt: What does this print?
+  code: |
+    import struct
+    # one RTP-like header field: version/flags byte, then a 16-bit sequence number
+    header = struct.pack(">BH", 0x80, 4096)
+    print(header, len(header))
+  answer: b'\x80\x10\x00' 3
+  explain: >-
+    ">BH" means big-endian, one unsigned Byte (0x80) then one unsigned 16-bit
+    H value (4096 = 0x1000, two bytes). So 1 + 2 = 3 bytes. struct.unpack(">BH",
+    header) reverses it back to (128, 4096).
+  tags: [struct]
+
+- id: net-fill-struct-unpack
+  type: fill
+  topic: net
+  level: 2
+  prompt: Read the sequence number back out of the 3-byte header.
+  code: |
+    import struct
+    header = b"\x80\x10\x00"
+    flags, seq = struct.____(">BH", header)
+    print(flags, seq)
+  blanks:
+    - answer: unpack
+      options: [unpack, pack, calcsize, decode]
+  expected_output: 128 4096
+  explain: >-
+    unpack is the inverse of pack and always returns a tuple, even for one value.
+    The format ">BH" must match the bytes exactly, or you get a struct.error.
+  tags: [struct]
+
+- id: net-spotbug-port-range
+  type: spot_bug
+  topic: net
+  level: 2
+  prompt: This should list the RTP media ports 10000 to 10003. Tap the buggy line.
+  code: |
+    start, count = 10000, 4
+    ports = [start + i for i in range(1, count)]
+    print(ports)
+  bug_line: 2
+  fixed_code: |
+    start, count = 10000, 4
+    ports = [start + i for i in range(count)]
+    print(ports)
+  expected_output: "[10000, 10001, 10002, 10003]"
+  explain: >-
+    range(1, count) is 1,2,3 so it skipped the first port and stopped short.
+    range(count) is 0,1,2,3, giving all four ports. Off-by-one errors love port
+    ranges.
+  tags: [range, off-by-one]
+
+- id: net-parsons-hosts
+  type: parsons
+  topic: net
+  level: 2
+  prompt: Order the lines to print every usable host in a /30 subnet.
+  lines:
+    - "import ipaddress"
+    - 'net = ipaddress.ip_network("10.0.0.0/30")'
+    - "for host in net.hosts():"
+    - "    print(host)"
+  distractors:
+    - "for host in net.addresses():"
+    - 'net = ipaddress.ip_address("10.0.0.0/30")'
+  expected_output: |
+    10.0.0.1
+    10.0.0.2
+  explain: >-
+    .hosts() yields the usable addresses, skipping the network (.0) and broadcast
+    (.3), so a /30 has just 2. There is no .addresses() method, and ip_address
+    parses a single IP, not a CIDR.
+  tags: [ipaddress]
+
+- id: net-write-hostmask
+  type: write
+  topic: net
+  level: 2
+  prompt: Return how many usable hosts a CIDR has (total minus network and broadcast).
+  starter: |
+    import ipaddress
+
+    def usable_hosts(cidr):
+        """usable_hosts("10.0.0.0/24") -> 254"""
+        return 0
+
+    print(usable_hosts("10.0.0.0/24"))
+  tests: |
+    check(lambda: usable_hosts("10.0.0.0/24") == 254, "/24 has 254 usable")
+    check(lambda: usable_hosts("192.168.1.0/30") == 2, "/30 has 2 usable")
+    check(lambda: usable_hosts("172.16.0.0/16") == 65534, "/16 has 65534 usable")
+  hint: ip_network(cidr).num_addresses gives the total; subtract 2 for the network and broadcast addresses.
+  solution: |
+    import ipaddress
+
+    def usable_hosts(cidr):
+        return ipaddress.ip_network(cidr).num_addresses - 2
+
+    print(usable_hosts("10.0.0.0/24"))
+  explain: >-
+    len(list(net.hosts())) also works but builds the whole list; num_addresses - 2
+    is instant even for a /8. (A /31 and /32 are special cases with 0 usable here.)
+  tags: [ipaddress]

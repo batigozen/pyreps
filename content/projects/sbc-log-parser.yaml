@@ -1,0 +1,51 @@
+# Mini project. Each step is a `write` card whose starter already contains the
+# previous step's solution plus the new TODO, so every step can run on its own.
+id: sbc-log-parser
+title: SBC log parser
+summary: Turn raw SBC log lines into data, then report setup time per SBC and the worst calls.
+files: {}
+steps:
+  - id: sbc-1-parse-line
+    prompt: "Step 1 of 3: parse one log line with a regex into a dict. Return None for lines that don't match."
+    level: 2
+    starter: |
+      import re
+      from voicelab import read_log
+
+      LINE = re.compile(
+          r"^(?P<ts>\S+) (?P<level>\w+)\s+(?P<sbc>\S+) INVITE call-id=(?P<call_id>\S+) "
+          r"from=(?P<caller>\S+) to=(?P<callee>\S+) -> (?P<code>\d{3}) (?P<reason>.+?) "
+          r"setup_ms=(?P<setup_ms>\d+)$"
+      )
+
+      def parse_line(line):
+          """dict with code and setup_ms as int, or None."""
+          return None
+
+      print(parse_line(read_log()[4]))
+    tests: |
+      e = parse_line(read_log()[4])
+      check(lambda: e["sbc"] == "sbc-ic-02" and e["code"] == 503, "line 5 is a 503 from sbc-ic-02")
+      check(lambda: isinstance(e["setup_ms"], int), "setup_ms must be an int")
+      check(lambda: parse_line("2026-10-21T09:06:36.500Z INFO  sbc-ic-01 OPTIONS keepalive ok") is None, "non-INVITE lines give None")
+    hint: m = LINE.match(line); return None if m is None; else d = m.groupdict() and convert two fields with int().
+    solution: |
+      import re
+      from voicelab import read_log
+
+      LINE = re.compile(
+          r"^(?P<ts>\S+) (?P<level>\w+)\s+(?P<sbc>\S+) INVITE call-id=(?P<call_id>\S+) "
+          r"from=(?P<caller>\S+) to=(?P<callee>\S+) -> (?P<code>\d{3}) (?P<reason>.+?) "
+          r"setup_ms=(?P<setup_ms>\d+)$"
+      )
+
+      def parse_line(line):
+          m = LINE.match(line)
+          if m is None:
+              return None
+          d = m.groupdict()
+          d["code"], d["setup_ms"] = int(d["code"]), int(d["setup_ms"])
+          return d
+
+      print(parse_line(read_log()[4]))
+    explain: Named groups make the match readable; groupdict() turns it into a dict in one call.

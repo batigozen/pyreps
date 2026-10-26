@@ -1,0 +1,156 @@
+# SECURITY BASICS deck. Defensive/educational: hashing, encoding, comparing
+# secrets safely, generating tokens, validating input. No attack tooling.
+- id: security-predict-sha256
+  type: predict
+  topic: security
+  level: 1
+  prompt: What does this print?
+  code: |
+    import hashlib
+    data = b"voice123"
+    print(hashlib.sha256(data).hexdigest()[:12], len(hashlib.sha256(data).hexdigest()))
+  answer: be8f2a5735b5 64
+  explain: >-
+    sha256 always produces 32 bytes, shown as 64 hex characters. hexdigest() is
+    the readable form. The same input always gives the same hash, which is why
+    hashes verify integrity (did this config file change?).
+  tags: [hashlib]
+
+- id: security-mcq-hash-vs-encrypt
+  type: mcq
+  topic: security
+  level: 1
+  prompt: What's the key difference between hashing and encoding (like base64)?
+  options:
+    - Hashing is faster
+    - Encoding is reversible by anyone; a hash is a one-way fingerprint
+    - They are the same thing
+    - Encoding needs a password
+  correct: 1
+  explain: >-
+    base64 just reshapes bytes, so anyone can decode it (this is the Kubernetes
+    Secret point from the K8s course). A hash can't be reversed to the input.
+    Neither is encryption, which needs a key.
+  tags: [encoding]
+
+- id: security-predict-base64-roundtrip
+  type: predict
+  topic: security
+  level: 1
+  prompt: What does this print?
+  code: |
+    import base64
+    token = base64.b64encode(b"oss:voice123")
+    print(token.decode(), base64.b64decode(token).decode())
+  answer: b3NzOnZvaWNlMTIz oss:voice123
+  explain: >-
+    b64encode returns bytes, so .decode() turns them into a str for printing.
+    b64decode reverses it. This is exactly what a Basic Auth header carries, which
+    is why Basic Auth needs HTTPS: base64 hides nothing.
+  tags: [base64, encoding]
+
+- id: security-mcq-compare-digest
+  type: mcq
+  topic: security
+  level: 2
+  prompt: Why compare a token with hmac.compare_digest(a, b) instead of a == b?
+  options:
+    - compare_digest is shorter to type
+    - It avoids a timing side-channel by taking the same time whatever the input
+    - "== doesn't work on strings"
+    - It also hashes the values
+  correct: 1
+  explain: >-
+    == can return False as soon as the first differing character, so the time it
+    takes leaks how much of a guess was right. compare_digest takes constant time,
+    closing that side-channel. Use it for tokens, signatures and password checks.
+  tags: [hmac, timing]
+
+- id: security-fill-token
+  type: fill
+  topic: security
+  level: 2
+  prompt: Generate a URL-safe random API token.
+  code: |
+    import secrets
+    token = secrets.____(16)
+    print(len(token) >= 16, token.isascii())
+  blanks:
+    - answer: token_urlsafe
+      options: [token_urlsafe, randbelow, choice, token_bytes]
+  expected_output: "True True"
+  explain: >-
+    secrets is the module for security-sensitive randomness, unlike random which
+    is predictable. token_urlsafe(16) gives about 22 safe characters. Never build
+    tokens or passwords from random.choice.
+  tags: [secrets]
+
+- id: security-mcq-hmac-verify
+  type: mcq
+  topic: security
+  level: 2
+  prompt: >-
+    A webhook check ends with `return mac == sig`, where mac is an HMAC hex
+    digest. Both lines below work. Which is the safer last line, and why?
+  options:
+    - "return mac == sig  (simple and correct)"
+    - "return hmac.compare_digest(mac, sig)  (constant time, no timing leak)"
+    - "return sig in mac  (checks the signature is present)"
+    - "return hash(mac) == hash(sig)  (faster comparison)"
+  correct: 1
+  explain: >-
+    == stops at the first differing character, so its timing leaks how much of a
+    guess was right. compare_digest takes the same time either way. The HMAC logic
+    itself is right: a shared key signs the body, like GitHub and Stripe webhooks.
+  tags: [hmac, timing]
+
+- id: security-parsons-mask-numbers
+  type: parsons
+  topic: security
+  level: 2
+  prompt: Order the lines to mask phone numbers before logging (keep last 2 digits).
+  lines:
+    - "import re"
+    - 'line = "call from +31639958838 to +31102719583"'
+    - 'masked = re.sub(r"\+31\d{7}(\d{2})", r"+31*******\1", line)'
+    - "print(masked)"
+  distractors:
+    - 'masked = re.match(r"\+31\d+", line)'
+  expected_output: "call from +31*******38 to +31*******83"
+  explain: >-
+    re.sub replaces every match; the captured group (\d{2}) is put back with \1,
+    keeping the last two digits for support while hiding the rest. This is real
+    privacy hygiene before pasting logs into a ticket.
+  tags: [regex, privacy]
+
+- id: security-write-hash-file-lines
+  type: write
+  topic: security
+  level: 2
+  prompt: "Return a dict mapping each line to its sha256 hex, to detect which config lines changed."
+  starter: |
+    import hashlib
+
+    def fingerprint(lines):
+        """fingerprint(["a", "b"]) -> {"a": "<64 hex>", "b": "<64 hex>"}"""
+        return {}
+
+    print(len(fingerprint(["timeout=5", "threshold=0.65"])))
+  tests: |
+    fp = fingerprint(["timeout=5", "threshold=0.65"])
+    check(lambda: set(fp) == {"timeout=5", "threshold=0.65"}, "keys are the lines")
+    import hashlib
+    check(lambda: fp["timeout=5"] == hashlib.sha256(b"timeout=5").hexdigest(), "value is the sha256 hex of the line")
+    check(lambda: all(len(v) == 64 for v in fp.values()), "each hash is 64 hex chars")
+  hint: Encode each line to bytes with .encode(), then hashlib.sha256(...).hexdigest(). Build it with a dict comprehension.
+  solution: |
+    import hashlib
+
+    def fingerprint(lines):
+        return {line: hashlib.sha256(line.encode()).hexdigest() for line in lines}
+
+    print(len(fingerprint(["timeout=5", "threshold=0.65"])))
+  explain: >-
+    sha256 needs bytes, so .encode() first. Comparing two fingerprints tells you
+    exactly which lines changed between two versions of a file.
+  tags: [hashlib, comprehension]
