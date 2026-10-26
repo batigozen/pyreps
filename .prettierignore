@@ -1,0 +1,13 @@
+dist/
+dev-dist/
+node_modules/
+coverage/
+test-results/
+playwright-report/
+public/icons/
+package-lock.json
+src/generated/
+# Doc pack and content are hand-formatted; keep their exact layout.
+*.md
+content/
+seed/
