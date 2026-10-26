@@ -1,0 +1,116 @@
+@import "tailwindcss";
+
+/* Colour tokens. Every screen uses these, never raw colours. */
+:root {
+  color-scheme: light dark;
+  --bg: #f7f6f2;
+  --surface: #ffffff;
+  --surface-2: #eeece6;
+  --fg: #1b1f24;
+  --muted: #545c66;
+  --border: #d9d5cc;
+  --accent: #0b6e69;
+  --accent-fg: #ffffff;
+  --ok: #1e7b3a;
+  --bad: #b42318;
+
+  --nav-h: 60px;
+  --gutter: 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111417;
+    --surface: #1a1f24;
+    --surface-2: #232a30;
+    --fg: #eceef0;
+    --muted: #a3abb4;
+    --border: #2f373e;
+    --accent: #5cc8bf;
+    --accent-fg: #06201e;
+    --ok: #5bd08a;
+    --bad: #ff8a7f;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-ok: var(--ok);
+  --color-bad: var(--bad);
+  --font-sans: "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    background: var(--bg);
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-size: 17px;
+    line-height: 1.5;
+    /* Code blocks scroll inside themselves; the page never scrolls sideways. */
+    overflow-x: clip;
+  }
+
+  code,
+  pre,
+  kbd,
+  samp,
+  textarea {
+    font-family: var(--font-mono);
+    font-variant-ligatures: none;
+  }
+
+  a,
+  button {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* Safe areas: notch and Dynamic Island at the top, home bar at the bottom. */
+.app-main {
+  padding-top: max(env(safe-area-inset-top), var(--gutter));
+  padding-left: max(env(safe-area-inset-left), var(--gutter));
+  padding-right: max(env(safe-area-inset-right), var(--gutter));
+  padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + var(--gutter));
+}
+
+.bottom-nav {
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+.toast {
+  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 8px);
+}
