@@ -1,4 +1,10 @@
-import type { FillCard, McqCard, PredictCard, SpotBugCard } from "../content/schema.ts";
+import type {
+  FillCard,
+  McqCard,
+  ParsonsCard,
+  PredictCard,
+  SpotBugCard,
+} from "../content/schema.ts";
 import { BLANK, codeLines } from "../content/checks.ts";
 
 /**
@@ -49,4 +55,55 @@ export function spotBugFix(card: SpotBugCard) {
 export function fillBlanks(code: string, values: readonly (string | null)[]): string {
   let i = 0;
   return code.replaceAll(BLANK, () => values[i++] ?? BLANK);
+}
+
+export type ParsonsLine = { text: string; indent: number };
+
+const indentOf = (line: string) => line.length - line.trimStart().length;
+
+/** The expected program: each line without its leading spaces, plus its indent level. */
+export const parsonsTarget = (card: ParsonsCard): ParsonsLine[] =>
+  card.lines.map((line) => ({ text: line.trimStart(), indent: indentOf(line) / 4 }));
+
+/** Same lines, same order, same indents. A distractor anywhere makes it wrong. */
+export function gradeParsons(card: ParsonsCard, placed: readonly ParsonsLine[]): boolean {
+  const target = parsonsTarget(card);
+  return (
+    placed.length === target.length &&
+    placed.every((line, i) => line.text === target[i]?.text && line.indent === target[i]?.indent)
+  );
+}
+
+export type PoolItem = { key: number; text: string };
+
+function seededRandom(seed: string) {
+  let h = 2166136261;
+  for (const char of seed) h = Math.imul(h ^ char.charCodeAt(0), 16777619);
+  return () => {
+    h = Math.imul(h ^ (h >>> 15), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    return ((h ^= h >>> 16) >>> 0) / 4294967296;
+  };
+}
+
+/** Lines and distractors mixed. The same card always gives the same order, never the answer. */
+export function parsonsPool(card: ParsonsCard): PoolItem[] {
+  const items = [...card.lines, ...(card.distractors ?? [])].map((line, key) => ({
+    key,
+    text: line.trimStart(),
+  }));
+  const random = seededRandom(card.id);
+  for (let i = items.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [items[i], items[j]] = [items[j] as PoolItem, items[i] as PoolItem];
+  }
+  // If the mix happens to start with the answer in order, rotate it once.
+  const inOrder = card.lines.every((line, i) => items[i]?.text === line.trimStart());
+  return inOrder ? [...items.slice(1), ...items.slice(0, 1)] : items;
+}
+
+/** Where a newly placed line starts: like the line above, one deeper after ":". */
+export function suggestIndent(previous: ParsonsLine | undefined): number {
+  if (!previous) return 0;
+  return Math.min(4, previous.indent + (previous.text.trimEnd().endsWith(":") ? 1 : 0));
 }

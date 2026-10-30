@@ -76,6 +76,12 @@ function cardProblems(card: Card): string[] {
       break;
     }
     case "parsons":
+      card.lines.forEach((line, i) => {
+        const spaces = line.length - line.trimStart().length;
+        if (spaces % 4 !== 0 || spaces > 16) {
+          problems.push(`line ${i + 1}: indent must be 0 to 16 spaces, in steps of 4`);
+        }
+      });
       for (const distractor of card.distractors ?? []) {
         if (card.lines.includes(distractor)) {
           problems.push(`distractor is also a correct line: ${distractor}`);
