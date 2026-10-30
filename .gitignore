@@ -3,6 +3,7 @@ dist/
 dev-dist/
 .venv/
 src/generated/
+public/pyodide/
 test-results/
 playwright-report/
 coverage/

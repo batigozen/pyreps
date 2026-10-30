@@ -5,7 +5,17 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", "dev-dist", "coverage", "test-results", "playwright-report", ".venv"] },
+  {
+    ignores: [
+      "dist",
+      "dev-dist",
+      "coverage",
+      "test-results",
+      "playwright-report",
+      ".venv",
+      "public/pyodide",
+    ],
+  },
   {
     files: ["**/*.{ts,tsx}"],
     extends: [

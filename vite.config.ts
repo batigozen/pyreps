@@ -8,7 +8,7 @@ const BG_LIGHT = "#f7f6f2";
 const ACCENT = "#0b6e69";
 
 // GitHub Pages can't send headers, so the CSP is a <meta> tag.
-// Pyodide (Phase 1) may also need 'unsafe-eval'; add it only if a test proves it.
+// It covers this page only: the Pyodide worker has its own locks, see src/python/worker.ts.
 const CSP = [
   "default-src 'self'",
   "script-src 'self' 'wasm-unsafe-eval'",
@@ -37,6 +37,7 @@ function contentSecurityPolicy(): Plugin {
 
 export default defineConfig({
   base: "/pyreps/",
+  worker: { format: "es" },
   plugins: [
     react(),
     tailwindcss(),
@@ -71,7 +72,9 @@ export default defineConfig({
       // The glob already covers the icons; the plugin adds the manifest itself.
       includeManifestIcons: false,
       workbox: {
-        globPatterns: ["**/*.{js,css,html,svg,png,ico,woff2}"],
+        globPatterns: ["**/*.{js,mjs,css,html,svg,png,ico,woff2,wasm,zip,json}"],
+        // pyodide.asm.wasm is about 10 MB.
+        maximumFileSizeToCacheInBytes: 20 * 1024 * 1024,
         cleanupOutdatedCaches: true,
       },
     }),

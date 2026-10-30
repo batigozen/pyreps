@@ -5,6 +5,7 @@ coverage/
 test-results/
 playwright-report/
 public/icons/
+public/pyodide/
 package-lock.json
 src/generated/
 # Doc pack and content are hand-formatted; keep their exact layout.
