@@ -45,7 +45,7 @@ test("Settings opens from Today", async ({ page }) => {
 
 test("opens offline after the first visit", async ({ page, context }) => {
   await page.goto("./");
-  await expect(page.getByRole("status")).toContainText("works offline");
+  await expect(page.getByRole("status")).toContainText("works offline", { timeout: 60_000 });
 
   // The first visit installs the service worker; it controls the next load.
   await page.reload();

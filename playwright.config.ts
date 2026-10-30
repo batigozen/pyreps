@@ -21,7 +21,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `npm run build && npx vite preview --port ${PORT} --strictPort`,
+    // `npm run e2e` builds first, so a server that is still running also serves the new build.
+    command: `npx vite preview --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}/pyreps/`,
     reuseExistingServer: !isCI,
     timeout: 120_000,
