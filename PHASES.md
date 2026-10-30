@@ -41,11 +41,11 @@ Goal: the four tap-friendly card types work with real content.
 **Done when:** Bati can solve `dicts-write-asr-per-trunk` on his phone without fighting the keyboard.
 
 ## Phase 4: Spaced repetition and the daily session
-- [ ] `scheduler.ts` (ts-fsrs, automatic rating rules from ARCHITECTURE.md), `planner.ts` (due + new, caps, interleaving, write-card spacing, 04:00 day boundary), with unit tests using a fake clock.
-- [ ] Dexie schema v1 + repository functions + `navigator.storage.persist()`.
-- [ ] Today screen (due/new counts, streak, Start), Session screen (card player, progress, re-queue Again cards once, resume after closing), Summary screen.
-- [ ] Settings: new per day, max reviews, unlocked topics (default: core modules 1–6 on; the rest and the domain decks off until Bati turns them on), font size.
-- [ ] Topics screen: mastery bar per topic (share of cards with stability ≥ 21 days), "Practise 10".
+- [x] `scheduler.ts` (ts-fsrs, automatic rating rules from ARCHITECTURE.md), `planner.ts` (due + new, caps, interleaving, write-card spacing, 04:00 day boundary), with unit tests using a fake clock.
+- [x] Dexie schema v1 + repository functions + `navigator.storage.persist()`.
+- [x] Today screen (due/new counts, streak, Start), Session screen (card player, progress, re-queue Again cards once, resume after closing), Summary screen.
+- [x] Settings: new per day, max reviews, unlocked topics (default: core modules 1–6 on; the rest and the domain decks off until Bati turns them on), font size.
+- [x] Topics screen: mastery bar per topic (share of cards with stability ≥ 21 days), "Practise 10".
 **Done when:** a 7-day simulation test (fake clock) shows sensible queues, and a real session on the phone takes about 10 minutes.
 
 ## Phase 5: The full card bank

@@ -137,8 +137,13 @@ type Project = { id: string; title: string; summary: string; files: Record<strin
   - wrong twice, or "Show answer" → `Again` (the card is re-queued once at the end of today's session)
   - `write` cards: a failed Check doesn't end the card (a typo shouldn't). It only sets the result: 0 failed Checks and no hint → first try, 1 failed Check or the hint → retry (`Hard`), 2 or more → `Again`. Run is free. Errors from the runtime itself (not ready, crashed) don't count.
 - The user can always tap "I knew this" / "I guessed" after the reveal, to change Good⇄Hard only. Keep it small and optional.
-- **Planner** (`planner.ts`): `due = cards where due <= endOfToday`, sorted by due (oldest first), capped at `maxReviews`. Then add `newPerDay` new cards from unlocked topics in course order (level 1 before 2 before 3). Interleave so the same topic doesn't come twice in a row when possible. Put a `write` card at most every 4th position, to keep the session thumb-friendly.
-- "Practise topic" mode uses the same card components but only updates FSRS for cards that are actually due (otherwise it just records attempts).
+- Phase 4 details, not spelled out above (open to change):
+  - Right on the first try but **over the time budget** → `Hard`. Time while the app is in the background doesn't count.
+  - The review is saved when the card ends; the Good⇄Hard switch re-runs FSRS from the state before that review.
+  - `ts-fsrs` 5.4.2 with its default (re)learning steps (1 min, 10 min): a new card answered right comes back ~10 minutes later, so it is "due today" again after the session. Today then shows "Done for today" with an optional "Review N more".
+- **Planner** (`planner.ts`): `due = cards where due <= endOfToday`, sorted by due (oldest first), capped at `maxReviews`. Then add `newPerDay` new cards from unlocked topics in course order (level 1 before 2 before 3; within a level, one card from each unlocked topic in turn). Both caps count what was already done today. Interleave so the same topic doesn't come twice in a row when possible. Put a `write` card at most every 4th position, to keep the session thumb-friendly.
+- "Practise topic" mode uses the same card components but only updates FSRS for cards that are actually due (otherwise it just records attempts). It picks due cards, then cards seen longest ago, then new ones.
+- **Streak**: study days in a row with at least one answered card (session or practice), ending today or yesterday.
 - A day starts at 04:00 local time (Anki convention), so late-night sessions count for the right day.
 
 ## Persistence (`src/db/db.ts`, Dexie)
