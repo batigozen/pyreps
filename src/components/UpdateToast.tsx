@@ -1,5 +1,8 @@
+import { useEffect } from "react";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import Icon from "./Icon.tsx";
+
+const OFFLINE_NOTE_MS = 6000;
 
 type Props = {
   /** During a session the message would cover the card's buttons, so it waits. */
@@ -13,6 +16,13 @@ export default function UpdateToast({ paused = false }: Props) {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
   } = useRegisterSW();
+
+  // "Works offline" is only news, so it goes away by itself. "New version" waits for a tap.
+  useEffect(() => {
+    if (!offlineReady) return;
+    const timer = setTimeout(() => setOfflineReady(false), OFFLINE_NOTE_MS);
+    return () => clearTimeout(timer);
+  }, [offlineReady, setOfflineReady]);
 
   const close = () => {
     setOfflineReady(false);

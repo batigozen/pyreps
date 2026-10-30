@@ -66,6 +66,8 @@
 @layer base {
   /* Settings > Text size sets --text-scale. Inputs stay at 16px: iOS zooms into smaller ones. */
   html {
+    /* Scrolling to a button (focus, Next) keeps it clear of the tab bar. */
+    scroll-padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + var(--gutter));
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
     background: var(--bg);
