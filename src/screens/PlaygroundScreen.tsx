@@ -1,18 +1,24 @@
 import { useState } from "react";
+import CodeEditor from "../components/CodeEditor.tsx";
 import PythonStatusBadge from "../components/PythonStatusBadge.tsx";
+import RunOutput from "../components/RunOutput.tsx";
 import ScreenHeader from "../components/ScreenHeader.tsx";
+import { useDraft } from "../components/useDraft.ts";
 import { python, type RunResult } from "../python/client.ts";
 import { usePythonStatus } from "../python/usePythonStatus.ts";
 
-// Temporary screen to prove Python works on the phone. Phase 6 replaces it.
+const START_CODE = "print(sum(range(10)))";
+
+// Temporary screen to prove Python works on the phone. Phase 6 makes it the real Playground.
 export default function PlaygroundScreen() {
   const status = usePythonStatus();
-  const [code, setCode] = useState("print(sum(range(10)))");
+  const [code, setCode] = useDraft("playground", START_CODE);
   const [output, setOutput] = useState("");
   const [result, setResult] = useState<RunResult>();
   const [running, setRunning] = useState(false);
 
   const run = async () => {
+    if (code === null) return;
     setRunning(true);
     setOutput("");
     setResult(undefined);
@@ -23,7 +29,7 @@ export default function PlaygroundScreen() {
     setRunning(false);
   };
 
-  const canRun = status === "ready" && !running;
+  const canRun = status === "ready" && !running && code !== null;
 
   return (
     <>
@@ -32,20 +38,11 @@ export default function PlaygroundScreen() {
         <PythonStatusBadge />
       </div>
 
-      <label htmlFor="playground-code" className="mb-1 block font-bold">
-        Code
-      </label>
-      <textarea
-        id="playground-code"
-        value={code}
-        onChange={(event) => setCode(event.target.value)}
-        autoCapitalize="off"
-        autoCorrect="off"
-        spellCheck={false}
-        wrap="off"
-        rows={8}
-        className="w-full resize-y overflow-x-auto rounded-xl border border-border bg-surface p-3 text-base"
-      />
+      {code === null ? (
+        <p className="text-muted">Loading your code…</p>
+      ) : (
+        <CodeEditor id="playground-code" label="Code" value={code} onChange={setCode} />
+      )}
 
       {status === "error" ? (
         <button
@@ -67,19 +64,7 @@ export default function PlaygroundScreen() {
       )}
 
       <h2 className="mt-4 mb-1 font-bold">Output</h2>
-      <div
-        data-testid="python-output"
-        aria-live="polite"
-        className="min-h-20 rounded-xl border border-border bg-surface-2 p-3"
-      >
-        {output && <pre className="overflow-x-auto text-[15px]">{output}</pre>}
-        {result?.error && (
-          <pre className="overflow-x-auto text-[15px] text-bad">
-            {result.error.traceback || result.error.message}
-          </pre>
-        )}
-        {result?.ok && !output && <p className="text-muted">No output.</p>}
-      </div>
+      <RunOutput output={output} result={result} />
     </>
   );
 }
