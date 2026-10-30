@@ -23,6 +23,12 @@ export default function TodayScreen() {
       <div className="mt-4">
         <PythonStatusBadge />
       </div>
+      <Link
+        to="/gallery"
+        className="mt-6 flex min-h-12 items-center justify-center rounded-xl border-2 border-accent px-4 font-bold text-accent"
+      >
+        Card gallery (for testing)
+      </Link>
     </>
   );
 }
