@@ -34,10 +34,10 @@ Goal: the four tap-friendly card types work with real content.
 **Done when:** every seed card of these types can be answered right and wrong on the iPhone, with correct feedback.
 
 ## Phase 3: Parsons and Write cards, mobile editor
-- [ ] `ParsonsCard`: tap a line in the pool to append it, tap a placed line to send it back, ← / → indent buttons on the placed line, distractors mixed in, Check compares lines + indents. Big tap targets.
-- [ ] `CodeEditor` + `SymbolBar` as specified (visualViewport positioning, bracket pairs, auto-indent after `:`, own undo).
-- [ ] `WriteCard`: editor with the starter, Run (plain output), Check (runs tests via harness, lists failed checks in plain words), Hint, Show solution. The draft is saved per card in IndexedDB.
-- [ ] e2e: solve the seed write card on an iPhone profile using the symbol bar.
+- [x] `ParsonsCard`: tap a line in the pool to append it, tap a placed line to send it back, ← / → indent buttons on the placed line, distractors mixed in, Check compares lines + indents. Big tap targets.
+- [x] `CodeEditor` + `SymbolBar` as specified (visualViewport positioning, bracket pairs, auto-indent after `:`, own undo).
+- [x] `WriteCard`: editor with the starter, Run (plain output), Check (runs tests via harness, lists failed checks in plain words), Hint, Show solution. The draft is saved per card in IndexedDB.
+- [x] e2e: solve the seed write card on an iPhone profile using the symbol bar.
 **Done when:** Bati can solve `dicts-write-asr-per-trunk` on his phone without fighting the keyboard.
 
 ## Phase 4: Spaced repetition and the daily session

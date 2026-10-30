@@ -135,6 +135,7 @@ type Project = { id: string; title: string; summary: string; files: Record<strin
   - the same but faster than 40% of the budget, and the card has already been reviewed at least twice → `Easy`
   - correct after one retry, or after using the hint → `Hard`
   - wrong twice, or "Show answer" → `Again` (the card is re-queued once at the end of today's session)
+  - `write` cards: a failed Check doesn't end the card (a typo shouldn't). It only sets the result: 0 failed Checks and no hint → first try, 1 failed Check or the hint → retry (`Hard`), 2 or more → `Again`. Run is free. Errors from the runtime itself (not ready, crashed) don't count.
 - The user can always tap "I knew this" / "I guessed" after the reveal, to change Good⇄Hard only. Keep it small and optional.
 - **Planner** (`planner.ts`): `due = cards where due <= endOfToday`, sorted by due (oldest first), capped at `maxReviews`. Then add `newPerDay` new cards from unlocked topics in course order (level 1 before 2 before 3). Interleave so the same topic doesn't come twice in a row when possible. Put a `write` card at most every 4th position, to keep the session thumb-friendly.
 - "Practise topic" mode uses the same card components but only updates FSRS for cards that are actually due (otherwise it just records attempts).
@@ -157,7 +158,7 @@ db.version(1).stores({
 ## Mobile editor (`components/CodeEditor.tsx`, `SymbolBar.tsx`)
 - A plain `<textarea>` with `autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text"`, monospace 16 px (iOS Safari zooms into inputs with smaller text), ligatures off, `tab-size: 4`, horizontal scroll (no wrapping), line numbers in a gutter.
 - Don't use CodeMirror or Monaco in v1. They're heavy and fragile on the iOS keyboard. Syntax highlighting is only needed for read-only code (CodeView), with a tiny tokenizer or Prism with just Python.
-- **SymbolBar**: sticky above the keyboard. Position it with `visualViewport` resize/scroll events so it stays visible when the keyboard opens. Keys: `⇥` `(` `)` `[` `]` `{` `}` `:` `"` `'` `=` `_` `*` `.` `,` `#` `←` `→` `↶`. Typing an opening bracket inserts the pair and puts the caret between them.
+- **SymbolBar**: sticky above the keyboard. Keys block `mousedown` (not `pointerdown`, which cancels the click on touch) so the editor keeps focus. Position it with `visualViewport` resize/scroll events so it stays visible when the keyboard opens. Keys: `⇥` `(` `)` `[` `]` `{` `}` `:` `"` `'` `=` `_` `*` `.` `,` `#` `←` `→` `↶`. Typing an opening bracket inserts the pair and puts the caret between them.
 - Enter after a line ending in `:` adds 4 spaces of extra indent. Backspace at an indent removes 4 spaces.
 - The undo button keeps its own small undo stack (iOS shake-to-undo isn't reliable).
 
