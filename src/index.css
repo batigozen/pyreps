@@ -153,3 +153,23 @@
 .tok-deco {
   color: var(--code-deco);
 }
+
+/* With the keyboard closed, the symbol bar sits on the home bar area. */
+.symbol-bar[data-keyboard="closed"] {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.code-editor {
+  tab-size: 4;
+  font-variant-ligatures: none;
+}
+
+/* Parsons: one faint guide per indent level (1.25rem each). */
+.indent-guides {
+  background-image: repeating-linear-gradient(
+    to right,
+    transparent 0 0.5rem,
+    var(--border) 0.5rem calc(0.5rem + 2px),
+    transparent calc(0.5rem + 2px) 1.25rem
+  );
+}
