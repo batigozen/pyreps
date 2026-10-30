@@ -81,9 +81,10 @@ test("settings change today's new cards and the text size", async ({ page }) => 
 test("practise a topic without changing the schedule of new cards", async ({ page }) => {
   await page.goto("./#/topics");
   await page.getByRole("link", { name: /Dictionaries in depth/ }).tap();
-  await expect(page.getByText("0 of 6 mastered")).toBeVisible();
-  await page.getByRole("button", { name: "Practise 6" }).tap();
-  for (let i = 0; i < 12; i++) await giveUpAndNext(page);
+  await expect(page.getByText(/^0 of \d+ mastered$/)).toBeVisible();
+  await page.getByRole("button", { name: "Practise 10" }).tap();
+  // Each missed card comes back once: 10 cards, 20 answers.
+  for (let i = 0; i < 20; i++) await giveUpAndNext(page);
   await expect(page.getByRole("heading", { name: "Practice done" })).toBeVisible();
   await page.getByRole("button", { name: "Done" }).tap();
 

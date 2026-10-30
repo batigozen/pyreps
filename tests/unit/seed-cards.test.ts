@@ -77,7 +77,8 @@ describe("seed cards in Pyodide", () => {
         expectOutput(card.code ?? "", String(card.answer));
         break;
       case "mcq":
-        if (card.code) expectOutput(card.code, undefined);
+        // Like the validator: code tagged `raises` is meant to fail.
+        if (card.code && !card.tags?.includes("raises")) expectOutput(card.code, undefined);
         break;
       case "fill": {
         let code = card.code ?? "";
