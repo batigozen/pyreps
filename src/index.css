@@ -14,6 +14,14 @@
   --ok: #1e7b3a;
   --bad: #b42318;
 
+  --code-kw: #7b2d8e;
+  --code-const: #9a3412;
+  --code-builtin: #0b5f8a;
+  --code-str: #1d6b2f;
+  --code-num: #9a4d00;
+  --code-com: #5f6670;
+  --code-deco: #7a5200;
+
   --nav-h: 60px;
   --gutter: 16px;
 }
@@ -30,6 +38,13 @@
     --accent-fg: #06201e;
     --ok: #5bd08a;
     --bad: #ff8a7f;
+    --code-kw: #d7a3ff;
+    --code-const: #ffa98a;
+    --code-builtin: #7cc4f0;
+    --code-str: #9fd89c;
+    --code-num: #f2b46b;
+    --code-com: #9aa3ad;
+    --code-deco: #e6c06b;
   }
 }
 
@@ -113,4 +128,28 @@
 
 .toast {
   bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 8px);
+}
+
+/* Read-only code. Colours come from the tokens above. */
+.tok-kw {
+  color: var(--code-kw);
+}
+.tok-const {
+  color: var(--code-const);
+}
+.tok-builtin {
+  color: var(--code-builtin);
+}
+.tok-str {
+  color: var(--code-str);
+}
+.tok-num {
+  color: var(--code-num);
+}
+.tok-com {
+  color: var(--code-com);
+  font-style: italic;
+}
+.tok-deco {
+  color: var(--code-deco);
 }
