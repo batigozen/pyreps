@@ -15,12 +15,12 @@ Goal: Bati can open a URL on his iPhone, add it to the Home Screen, and see the 
 
 ## Phase 1: Python in a worker
 Goal: real Python runs offline on the phone, safely.
-- [ ] `postinstall` script copies the Pyodide distribution files into `public/pyodide/`. They're precached by the service worker (raise the precache size limit).
-- [ ] `worker.ts` + `client.ts` exactly as in ARCHITECTURE.md (protocol, fresh globals, `__name__ == "__main__"`, data files on the virtual FS, `voicelab.py`, `harness.py`).
-- [ ] 5 s timeout: the worker is terminated and restarted, and the UI shows "Stopped: took longer than 5 s (endless loop?)".
-- [ ] Tracebacks trimmed to user frames, `main.py` filename, correct line numbers. `SystemExit(0)` is success.
-- [ ] Temporary Playground screen: textarea + Run + output, to prove it works on the phone.
-- [ ] Unit tests for the client (mock worker) and an e2e test that runs `print(sum(range(10)))` and gets `45`, an infinite loop that times out, and `from voicelab import load_cdrs; print(len(load_cdrs()))` that gets `48`.
+- [x] `postinstall` script copies the Pyodide distribution files into `public/pyodide/`. They're precached by the service worker (raise the precache size limit).
+- [x] `worker.ts` + `client.ts` exactly as in ARCHITECTURE.md (protocol, fresh globals, `__name__ == "__main__"`, data files on the virtual FS, `voicelab.py`, `harness.py`).
+- [x] 5 s timeout: the worker is terminated and restarted, and the UI shows "Stopped: took longer than 5 s (endless loop?)".
+- [x] Tracebacks trimmed to user frames, `main.py` filename, correct line numbers. `SystemExit(0)` is success.
+- [x] Temporary Playground screen: textarea + Run + output, to prove it works on the phone.
+- [x] Unit tests for the client (mock worker) and an e2e test that runs `print(sum(range(10)))` and gets `45`, an infinite loop that times out, and `from voicelab import load_cdrs; print(len(load_cdrs()))` that gets `48`.
 **Done when:** those three behaviours work on the iPhone, including offline after the first load.
 
 ## Phase 2: Content pipeline and tap-only cards

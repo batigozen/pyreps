@@ -9,7 +9,7 @@ A free, offline-first web app for iPhone: short daily Python practice with auto-
 2. Tap **Share** (the square with an arrow pointing up).
 3. Tap **Add to Home Screen**. You may need to scroll down, or tap **More** first. If you see **Open as Web App**, keep it on.
 4. Tap **Add**.
-5. Open PyReps from the Home Screen **once while you're online**. Wait for the message "Ready. PyReps now works offline."
+5. Open PyReps from the Home Screen **once while you're online**. It downloads about 14 MB, including Python. Wait for the message "Ready. PyReps now works offline."
 
 After that, it works in airplane mode.
 
