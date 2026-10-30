@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import Icon from "../components/Icon.tsx";
+import PythonStatusBadge from "../components/PythonStatusBadge.tsx";
 import Placeholder from "../components/Placeholder.tsx";
 import ScreenHeader from "../components/ScreenHeader.tsx";
 
@@ -19,6 +20,9 @@ export default function TodayScreen() {
         }
       />
       <Placeholder>Your daily reps will show here. Coming soon.</Placeholder>
+      <div className="mt-4">
+        <PythonStatusBadge />
+      </div>
     </>
   );
 }
