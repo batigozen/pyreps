@@ -1,5 +1,6 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import type { AttemptPhase, Outcome, Result } from "./outcome.ts";
+import { useActiveTime } from "./useActiveTime.ts";
 
 type Options = {
   cardId: string;
@@ -24,13 +25,12 @@ export function useAttempt({ cardId, answerKey, isCorrect, onDone, onWrong }: Op
   const [phase, setPhase] = useState<AttemptPhase>("answering");
   const [result, setResult] = useState<Result | null>(null);
   const [lastWrong, setLastWrong] = useState<string | null>(null);
-  const startedAt = useRef<number | null>(null);
-  startedAt.current ??= performance.now();
+  const elapsed = useActiveTime();
 
   const finish = (final: Result) => {
     setPhase("done");
     setResult(final);
-    onDone({ cardId, result: final, ms: performance.now() - (startedAt.current ?? 0) });
+    onDone({ cardId, result: final, ms: elapsed() });
   };
 
   const check = () => {

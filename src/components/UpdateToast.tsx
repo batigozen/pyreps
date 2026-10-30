@@ -1,8 +1,13 @@
 import { useRegisterSW } from "virtual:pwa-register/react";
 import Icon from "./Icon.tsx";
 
+type Props = {
+  /** During a session the message would cover the card's buttons, so it waits. */
+  paused?: boolean;
+};
+
 // Tells the user when the app works offline, and when a new version is waiting.
-export default function UpdateToast() {
+export default function UpdateToast({ paused = false }: Props) {
   const {
     offlineReady: [offlineReady, setOfflineReady],
     needRefresh: [needRefresh, setNeedRefresh],
@@ -17,7 +22,7 @@ export default function UpdateToast() {
   // The live region stays in the DOM so VoiceOver announces new text in it.
   return (
     <div role="status" className="toast fixed inset-x-0 z-20 mx-auto max-w-[640px] px-4">
-      {(offlineReady || needRefresh) && (
+      {!paused && (offlineReady || needRefresh) && (
         <div className="flex items-center gap-2 rounded-2xl border border-border bg-surface p-2 pl-4 shadow-lg">
           <p className="flex-1">
             {needRefresh ? "A new version is ready." : "Ready. PyReps now works offline."}

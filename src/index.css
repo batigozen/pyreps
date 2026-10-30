@@ -64,10 +64,12 @@
 }
 
 @layer base {
+  /* Settings > Text size sets --text-scale. Inputs stay at 16px: iOS zooms into smaller ones. */
   html {
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
     background: var(--bg);
+    font-size: calc(100% * var(--text-scale, 1));
   }
 
   body {
@@ -76,7 +78,7 @@
     background: var(--bg);
     color: var(--fg);
     font-family: var(--font-sans);
-    font-size: 17px;
+    font-size: 1.0625rem;
     line-height: 1.5;
     /* Code blocks scroll inside themselves; the page never scrolls sideways. */
     overflow-x: clip;
@@ -118,6 +120,10 @@
   padding-left: max(env(safe-area-inset-left), var(--gutter));
   padding-right: max(env(safe-area-inset-right), var(--gutter));
   padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + var(--gutter));
+}
+
+.app-main.no-nav {
+  padding-bottom: calc(env(safe-area-inset-bottom) + var(--gutter));
 }
 
 .bottom-nav {

@@ -59,7 +59,7 @@ export default function CodeView({ code, label = "Code", renderBlank, selectable
 
   return (
     <div
-      className="overflow-x-auto rounded-xl border border-border bg-surface font-mono text-[15px] leading-relaxed"
+      className="overflow-x-auto rounded-xl border border-border bg-surface font-mono text-[0.9375rem] leading-relaxed"
       role={selectable ? "radiogroup" : "group"}
       aria-label={selectable?.label ?? label}
     >

@@ -7,7 +7,7 @@ import { gradeMcq } from "./grading.ts";
 import type { CardProps } from "./types.ts";
 import { useAttempt } from "./useAttempt.ts";
 
-export default function McqCard({ card, onDone, onNext }: CardProps<McqCardData>) {
+export default function McqCard({ card, onDone, onNext, extra }: CardProps<McqCardData>) {
   const [choice, setChoice] = useState<number | null>(null);
   const [ruledOut, setRuledOut] = useState<ReadonlySet<number>>(new Set());
 
@@ -24,7 +24,7 @@ export default function McqCard({ card, onDone, onNext }: CardProps<McqCardData>
   });
 
   return (
-    <CardFrame card={card} attempt={attempt} onNext={onNext}>
+    <CardFrame card={card} attempt={attempt} onNext={onNext} extra={extra}>
       {card.code && <CodeView code={card.code} />}
       <ChoiceList
         label="Answers"

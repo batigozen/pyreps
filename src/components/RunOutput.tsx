@@ -16,9 +16,9 @@ export default function RunOutput({ output, result, emptyText = "No output." }: 
       aria-live="polite"
       className="min-h-20 rounded-xl border border-border bg-surface-2 p-3"
     >
-      {output && <pre className="overflow-x-auto text-[15px]">{output}</pre>}
+      {output && <pre className="overflow-x-auto text-[0.9375rem]">{output}</pre>}
       {result?.error && (
-        <pre className="overflow-x-auto text-[15px] text-bad">
+        <pre className="overflow-x-auto text-[0.9375rem] text-bad">
           {result.error.traceback || result.error.message}
         </pre>
       )}

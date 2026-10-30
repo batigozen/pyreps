@@ -18,7 +18,7 @@ const DOT: Record<PythonStatus, string> = {
 export default function PythonStatusBadge() {
   const status = usePythonStatus();
   return (
-    <p className="flex items-center gap-2 text-[15px] text-muted">
+    <p className="flex items-center gap-2 text-[0.9375rem] text-muted">
       <span aria-hidden="true" className={`size-2.5 rounded-full ${DOT[status]}`} />
       <span data-testid="python-status">{LABELS[status]}</span>
     </p>

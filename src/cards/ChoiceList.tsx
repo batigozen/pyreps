@@ -55,7 +55,7 @@ export default function ChoiceList({
             } ${state}`}
           >
             <span
-              className={`${chips ? "" : "flex-1"} ${mono ? "font-mono text-[15px] whitespace-pre-wrap" : ""}`}
+              className={`${chips ? "" : "flex-1"} ${mono ? "font-mono text-[0.9375rem] whitespace-pre-wrap" : ""}`}
             >
               {mono ? option : <RichText text={option} />}
             </span>

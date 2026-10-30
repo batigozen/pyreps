@@ -24,10 +24,11 @@ type Props = {
   card: Card;
   attempt: Attempt;
   onNext: () => void;
+  extra?: ReactNode;
   children: ReactNode;
 };
 
-export default function CardFrame({ card, attempt, onNext, children }: Props) {
+export default function CardFrame({ card, attempt, onNext, extra, children }: Props) {
   const bannerRef = useRef<HTMLDivElement>(null);
   const { phase, result } = attempt;
 
@@ -50,8 +51,8 @@ export default function CardFrame({ card, attempt, onNext, children }: Props) {
   return (
     <article aria-labelledby={`${card.id}-prompt`} className="flex flex-col gap-4">
       <header>
-        <p className="text-[15px] text-muted">{TYPE_LABEL[card.type]}</p>
-        <h2 id={`${card.id}-prompt`} className="text-[20px] leading-snug font-bold">
+        <p className="text-[0.9375rem] text-muted">{TYPE_LABEL[card.type]}</p>
+        <h2 id={`${card.id}-prompt`} className="text-[1.25rem] leading-snug font-bold">
           <RichText text={card.prompt} />
         </h2>
       </header>
@@ -73,6 +74,8 @@ export default function CardFrame({ card, attempt, onNext, children }: Props) {
           </p>
         )}
       </div>
+
+      {phase === "done" && extra}
 
       {phase === "done" && (
         <section aria-label="Why" className="rounded-xl bg-surface-2 p-4">

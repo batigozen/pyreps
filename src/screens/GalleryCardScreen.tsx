@@ -36,13 +36,13 @@ export default function GalleryCardScreen() {
         >
           <Icon name="back" />
         </Link>
-        <p className="flex-1 text-[15px] text-muted">
+        <p className="flex-1 text-[0.9375rem] text-muted">
           Card {index + 1} of {galleryCards.length} · {card.topic}
         </p>
       </header>
       <CardView key={card.id} card={card} onDone={setOutcome} onNext={goNext} />
       {outcome?.cardId === card.id && (
-        <p data-testid="gallery-outcome" className="mt-4 text-[15px] text-muted">
+        <p data-testid="gallery-outcome" className="mt-4 text-[0.9375rem] text-muted">
           Result: {RESULT_TEXT[outcome.result]}, {(outcome.ms / 1000).toFixed(1)} s
         </p>
       )}

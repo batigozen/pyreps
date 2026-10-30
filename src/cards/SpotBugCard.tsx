@@ -6,7 +6,7 @@ import { gradeSpotBug, spotBugFix } from "./grading.ts";
 import type { CardProps } from "./types.ts";
 import { useAttempt } from "./useAttempt.ts";
 
-export default function SpotBugCard({ card, onDone, onNext }: CardProps<SpotBugCardData>) {
+export default function SpotBugCard({ card, onDone, onNext, extra }: CardProps<SpotBugCardData>) {
   const [line, setLine] = useState<number | null>(null);
   const [wrongLines, setWrongLines] = useState<readonly number[]>([]);
 
@@ -32,7 +32,7 @@ export default function SpotBugCard({ card, onDone, onNext }: CardProps<SpotBugC
   const fix = spotBugFix(card);
 
   return (
-    <CardFrame card={card} attempt={attempt} onNext={onNext}>
+    <CardFrame card={card} attempt={attempt} onNext={onNext} extra={extra}>
       <CodeView
         code={card.code}
         selectable={{
@@ -48,7 +48,7 @@ export default function SpotBugCard({ card, onDone, onNext }: CardProps<SpotBugC
       {done && (
         <section aria-label="The fix">
           <h3 className="mb-1 font-bold">The fix, line {fix.line}</h3>
-          <div className="overflow-x-auto rounded-xl border border-border bg-surface py-2 font-mono text-[15px] leading-relaxed">
+          <div className="overflow-x-auto rounded-xl border border-border bg-surface py-2 font-mono text-[0.9375rem] leading-relaxed">
             <div className="min-w-max">
               <p className="bg-bad/15 px-3 whitespace-pre">
                 <span aria-hidden="true">- </span>

@@ -10,6 +10,7 @@ import { python, type RunResult } from "../python/client.ts";
 import { usePythonStatus } from "../python/usePythonStatus.ts";
 import type { Result } from "./outcome.ts";
 import type { CardProps } from "./types.ts";
+import { useActiveTime } from "./useActiveTime.ts";
 
 // Python errors that came from the user's code count as a failed check.
 // Errors from the runtime itself (not ready, crashed) don't.
@@ -33,7 +34,7 @@ function resultFor(failedChecks: number, hintUsed: boolean): Result {
   return "first-try";
 }
 
-export default function WriteCard({ card, onDone, onNext }: CardProps<WriteCardData>) {
+export default function WriteCard({ card, onDone, onNext, extra }: CardProps<WriteCardData>) {
   const status = usePythonStatus();
   const [code, setCode] = useDraft(card.id, card.starter);
   const [output, setOutput] = useState("");
@@ -42,12 +43,8 @@ export default function WriteCard({ card, onDone, onNext }: CardProps<WriteCardD
   const [failedChecks, setFailedChecks] = useState(0);
   const [hintUsed, setHintUsed] = useState(false);
   const [final, setFinal] = useState<Result | null>(null);
-  const startedAt = useRef<number | null>(null);
+  const elapsed = useActiveTime();
   const bannerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    startedAt.current ??= performance.now();
-  }, []);
 
   useEffect(() => {
     if (final === null) return;
@@ -57,7 +54,7 @@ export default function WriteCard({ card, onDone, onNext }: CardProps<WriteCardD
 
   const finish = (value: Result) => {
     setFinal(value);
-    onDone({ cardId: card.id, result: value, ms: performance.now() - (startedAt.current ?? 0) });
+    onDone({ cardId: card.id, result: value, ms: elapsed() });
   };
 
   const execute = async (mode: "run" | "check") => {
@@ -86,8 +83,8 @@ export default function WriteCard({ card, onDone, onNext }: CardProps<WriteCardD
   return (
     <article aria-labelledby={`${card.id}-prompt`} className="flex flex-col gap-4">
       <header>
-        <p className="text-[15px] text-muted">Write code</p>
-        <h2 id={`${card.id}-prompt`} className="text-[20px] leading-snug font-bold">
+        <p className="text-[0.9375rem] text-muted">Write code</p>
+        <h2 id={`${card.id}-prompt`} className="text-[1.25rem] leading-snug font-bold">
           <RichText text={card.prompt} />
         </h2>
       </header>
@@ -122,7 +119,7 @@ export default function WriteCard({ card, onDone, onNext }: CardProps<WriteCardD
       {(running || result) && <RunOutput output={output} result={result} />}
 
       {!done && failedChecks > 0 && (
-        <p className="text-[15px] text-muted">
+        <p className="text-[0.9375rem] text-muted">
           Failed checks so far: {failedChecks}. Fix the code and check again.
         </p>
       )}
@@ -138,6 +135,8 @@ export default function WriteCard({ card, onDone, onNext }: CardProps<WriteCardD
           </p>
         )}
       </div>
+
+      {done && extra}
 
       {hintUsed && (
         <section aria-label="Hint" className="rounded-xl border-l-4 border-accent bg-accent/10 p-4">

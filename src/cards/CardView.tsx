@@ -8,8 +8,8 @@ import type { CardProps } from "./types.ts";
 import WriteCard from "./WriteCard.tsx";
 
 /** Give it `key={card.id}`, so each card starts fresh. */
-export default function CardView({ card, onDone, onNext }: CardProps<Card>) {
-  const props = { onDone, onNext };
+export default function CardView({ card, onDone, onNext, extra }: CardProps<Card>) {
+  const props = { onDone, onNext, extra };
   switch (card.type) {
     case "predict":
       return <PredictCard card={card} {...props} />;

@@ -11,8 +11,8 @@ export default function GalleryScreen() {
         title="Card gallery"
         leading={
           <Link
-            to="/"
-            aria-label="Back to Today"
+            to="/settings"
+            aria-label="Back to Settings"
             className="-ml-2 flex size-11 items-center justify-center rounded-xl text-accent"
           >
             <Icon name="back" />
@@ -27,8 +27,8 @@ export default function GalleryScreen() {
               to={`/gallery/${card.id}`}
               className="flex min-h-12 flex-col justify-center rounded-xl border border-border bg-surface px-4 py-2"
             >
-              <span className="font-mono text-[15px] break-all">{card.id}</span>
-              <span className="text-[15px] text-muted">
+              <span className="font-mono text-[0.9375rem] break-all">{card.id}</span>
+              <span className="text-[0.9375rem] text-muted">
                 {card.topic} · {card.type.replace("_", " ")} · level {card.level}
               </span>
             </Link>

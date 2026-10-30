@@ -142,7 +142,7 @@ export default function CodeEditor({ id, label, value, onChange, readOnly = fals
       <div className="flex overflow-hidden rounded-xl border-2 border-border bg-surface focus-within:border-accent">
         <div
           aria-hidden="true"
-          className="shrink-0 border-r border-border py-2 pr-2 pl-3 text-right font-mono text-base leading-normal text-muted select-none"
+          className="shrink-0 border-r border-border py-2 pr-2 pl-3 text-right font-mono text-[16px] leading-normal text-muted select-none"
         >
           {Array.from({ length: lineCount }, (_, i) => (
             <div key={i}>{i + 1}</div>
@@ -174,7 +174,7 @@ export default function CodeEditor({ id, label, value, onChange, readOnly = fals
               run(tab)();
             }
           }}
-          className="code-editor min-w-0 flex-1 resize-none overflow-x-auto bg-transparent px-2 py-2 font-mono text-base leading-normal outline-none"
+          className="code-editor min-w-0 flex-1 resize-none overflow-x-auto bg-transparent px-2 py-2 font-mono text-[16px] leading-normal outline-none"
         />
       </div>
       {focused && !readOnly && (

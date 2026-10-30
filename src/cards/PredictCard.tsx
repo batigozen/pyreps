@@ -7,7 +7,7 @@ import { gradePredict, gradePredictChoice, normaliseOutput } from "./grading.ts"
 import type { CardProps } from "./types.ts";
 import { useAttempt } from "./useAttempt.ts";
 
-export default function PredictCard({ card, onDone, onNext }: CardProps<PredictCardData>) {
+export default function PredictCard({ card, onDone, onNext, extra }: CardProps<PredictCardData>) {
   const inputId = useId();
   const [typed, setTyped] = useState("");
   const [choice, setChoice] = useState<number | null>(null);
@@ -34,7 +34,7 @@ export default function PredictCard({ card, onDone, onNext }: CardProps<PredictC
 
   const answerLines = normaliseOutput(card.answer).split("\n").length;
   const inputClass =
-    "w-full rounded-xl border-2 border-border bg-surface px-3 py-2 font-mono text-base focus:border-accent";
+    "w-full rounded-xl border-2 border-border bg-surface px-3 py-2 font-mono text-[16px] focus:border-accent";
   const inputProps = {
     id: inputId,
     value: typed,
@@ -47,7 +47,7 @@ export default function PredictCard({ card, onDone, onNext }: CardProps<PredictC
   } as const;
 
   return (
-    <CardFrame card={card} attempt={attempt} onNext={onNext}>
+    <CardFrame card={card} attempt={attempt} onNext={onNext} extra={extra}>
       <CodeView code={card.code} />
 
       {options ? (
@@ -86,7 +86,7 @@ export default function PredictCard({ card, onDone, onNext }: CardProps<PredictC
               className={inputClass}
             />
           )}
-          <p id={`${inputId}-hint`} className="mt-1 text-[15px] text-muted">
+          <p id={`${inputId}-hint`} className="mt-1 text-[0.9375rem] text-muted">
             {answerLines > 1
               ? `Type exactly what Python prints. It is ${answerLines} lines.`
               : "Type exactly what Python prints."}
@@ -97,7 +97,7 @@ export default function PredictCard({ card, onDone, onNext }: CardProps<PredictC
       {showAnswer && !options && (
         <section aria-label="Answer">
           <h3 className="mb-1 font-bold">Answer</h3>
-          <pre className="overflow-x-auto rounded-xl border-2 border-ok bg-ok/10 px-3 py-2 text-[15px]">
+          <pre className="overflow-x-auto rounded-xl border-2 border-ok bg-ok/10 px-3 py-2 text-[0.9375rem]">
             {card.answer}
           </pre>
         </section>

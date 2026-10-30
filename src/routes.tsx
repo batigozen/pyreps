@@ -7,12 +7,16 @@ import StatsScreen from "./screens/StatsScreen.tsx";
 import SettingsScreen from "./screens/SettingsScreen.tsx";
 import GalleryScreen from "./screens/GalleryScreen.tsx";
 import GalleryCardScreen from "./screens/GalleryCardScreen.tsx";
+import SessionScreen from "./screens/SessionScreen.tsx";
+import TopicScreen from "./screens/TopicScreen.tsx";
 
 export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<TodayScreen />} />
       <Route path="/topics" element={<TopicsScreen />} />
+      <Route path="/topics/:topicId" element={<TopicScreen />} />
+      <Route path="/session" element={<SessionScreen />} />
       <Route path="/projects" element={<ProjectsScreen />} />
       <Route path="/playground" element={<PlaygroundScreen />} />
       <Route path="/stats" element={<StatsScreen />} />

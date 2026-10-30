@@ -16,7 +16,7 @@ const SLOT_CLASS: Record<"ok" | "bad" | "empty" | "filled", string> = {
   filled: "border-accent bg-accent/10",
 };
 
-export default function FillCard({ card, onDone, onNext }: CardProps<FillCardData>) {
+export default function FillCard({ card, onDone, onNext, extra }: CardProps<FillCardData>) {
   const [picks, setPicks] = useState<(string | null)[]>(() => card.blanks.map(() => null));
   const [marks, setMarks] = useState<Mark[]>(() => card.blanks.map(() => null));
   const complete = picks.every((pick) => pick !== null);
@@ -49,7 +49,7 @@ export default function FillCard({ card, onDone, onNext }: CardProps<FillCardDat
   };
 
   return (
-    <CardFrame card={card} attempt={attempt} onNext={onNext}>
+    <CardFrame card={card} attempt={attempt} onNext={onNext} extra={extra}>
       <CodeView code={card.code} renderBlank={renderBlank} />
       {card.blanks.map((blank, i) => (
         <div key={i}>

@@ -10,7 +10,7 @@ type Placed = { key: number; indent: number };
 
 const MAX_INDENT = 4;
 
-export default function ParsonsCard({ card, onDone, onNext }: CardProps<ParsonsCardData>) {
+export default function ParsonsCard({ card, onDone, onNext, extra }: CardProps<ParsonsCardData>) {
   const pool = useMemo(() => parsonsPool(card), [card]);
   const textOf = useMemo(() => new Map(pool.map((item) => [item.key, item.text])), [pool]);
   const [placed, setPlaced] = useState<Placed[]>([]);
@@ -44,12 +44,12 @@ export default function ParsonsCard({ card, onDone, onNext }: CardProps<ParsonsC
     );
 
   const left = pool.filter((item) => !placed.some((p) => p.key === item.key));
-  const lineClass = "font-mono text-[15px] whitespace-pre-wrap [overflow-wrap:anywhere]";
+  const lineClass = "font-mono text-[0.9375rem] whitespace-pre-wrap [overflow-wrap:anywhere]";
   const iconButton =
     "flex size-11 shrink-0 items-center justify-center rounded-lg border border-border bg-surface text-[18px] disabled:opacity-40";
 
   return (
-    <CardFrame card={card} attempt={attempt} onNext={onNext}>
+    <CardFrame card={card} attempt={attempt} onNext={onNext} extra={extra}>
       <section aria-labelledby={`${card.id}-program`}>
         <h3 id={`${card.id}-program`} className="mb-1 font-bold">
           Your program ({placed.length} of {need} lines)
@@ -116,7 +116,7 @@ export default function ParsonsCard({ card, onDone, onNext }: CardProps<ParsonsC
             ))}
           </div>
           {card.distractors?.length ? (
-            <p className="mt-1 text-[15px] text-muted">Some lines are not needed.</p>
+            <p className="mt-1 text-[0.9375rem] text-muted">Some lines are not needed.</p>
           ) : null}
         </section>
       )}
