@@ -22,6 +22,7 @@ Bati writes Java professionally and Python at an intermediate level. The cards s
 7. **Distractors are real mistakes**: `*` vs `**`, `item[0]` vs `item[1]`, `[]` vs `.get`, `list` vs `tuple`, off-by-one, `is` vs `==`. Never use silly options.
 8. **Levels**: 1 = recognise the idiom; 2 = use it in a small realistic task; 3 = combine two ideas or catch a subtle trap (mutable default, generator exhausted, `SystemExit`).
 9. Python version: answers must be the same on CPython 3.12–3.14 (the app runs Pyodide with 3.14). Avoid version-specific output, such as exact error message wording, except where the message is stable.
+10. **Runs in the app.** The app's Python (Pyodide) can't start threads or processes, `asyncio.run()` fails there, and `hashlib.pbkdf2_hmac` is missing. `npm test` runs every card in Pyodide too. `write` cards and project steps are the only code the app runs, so they must work there. A read-only card (predict, mcq, fill, spot_bug, parsons) may show real threads, `asyncio.run` or `subprocess.run` if it has the tag `cpython-only`: the validator still checks it with CPython, and the Pyodide test skips it. Its `explain` says that it runs on a real machine, not in the app's Playground.
 
 ## YAML gotchas
 - Quote any string containing `: `, `{`, `}`, `#`, `[` or leading `*`, `&`, `!`, `%`, `@`. For example `prompt: "Return {trunk: asr}"`.
@@ -81,4 +82,4 @@ A project is a list of `write` steps. **Each step's `starter` contains the full 
 In the app, a finished project offers "Export file", which saves `<project>.py` to iOS Files so it can be run in a-Shell with real files.
 
 ## Validation
-Run `python3 scripts/validate_content.py` (add `--topic dicts` for one topic, `--verbose` to list passes). It must report `0 with problems` before any commit that touches `content/`. The validator, not the author, is the source of truth for expected outputs: write the code, run it, then copy the real output into `answer`.
+Run `.venv/bin/python scripts/validate_content.py` (add `--topic dicts` for one topic, `--verbose` to list passes). It must report `0 with problems` before any commit that touches `content/`. Then run `npm test`, which runs the same cards in Pyodide (rule 10). The validator, not the author, is the source of truth for expected outputs: write the code, run it, then copy the real output into `answer`.

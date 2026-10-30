@@ -18,7 +18,11 @@ type Card = {
   starter?: string;
   tests?: string;
   solution?: string;
+  tags?: string[];
 };
+
+// CONTENT.md rule 10: read-only cards may show code that only runs on a real machine.
+const CPYTHON_ONLY = "cpython-only";
 
 const cardFiles = import.meta.glob<string>("../../content/cards/*.yaml", {
   query: "?raw",
@@ -63,6 +67,11 @@ describe("seed cards in Pyodide", () => {
   });
 
   it.each([...cards, ...steps].map((card) => [card.id, card] as const))("%s", (_id, card) => {
+    if (card.tags?.includes(CPYTHON_ONLY)) {
+      // The app runs write cards, so they must work in Pyodide.
+      expect(card.type).not.toBe("write");
+      return;
+    }
     switch (card.type) {
       case "predict":
         expectOutput(card.code ?? "", String(card.answer));
