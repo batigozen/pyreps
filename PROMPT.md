@@ -25,7 +25,7 @@ Fix anything I reported first, then start Phase <N+1>. Post the plan before codi
 ## 3. Authoring a topic in Phase 5 (one message per topic keeps quality high)
 
 ```
-Write the cards for topic `<topic>` following CONTENT.md exactly: about 20 cards, mix 6 predict / 3 mcq / 3 fill / 3 spot_bug / 3 parsons / 2 write, covering every bullet in the topic's "must cover" row. Use the voice-lab data and voicelab helpers. Run `python3 scripts/validate_content.py --topic <topic>` until it reports 0 problems. Never type an expected output by hand; run the code and copy the real output. Then show me 3 of the cards (one predict, one parsons, one write) rendered as they'd appear on the phone, and commit.
+Write the cards for topic `<topic>` following CONTENT.md exactly: about 20 cards, mix 6 predict / 3 mcq / 3 fill / 3 spot_bug / 3 parsons / 2 write, covering every bullet in the topic's "must cover" row. Use the voice-lab data and voicelab helpers. Run `.venv/bin/python scripts/validate_content.py --topic <topic>` and `npm test` until both report 0 problems. Never type an expected output by hand; run the code and copy the real output. Then show me 3 of the cards (one predict, one parsons, one write) rendered as they'd appear on the phone, and commit.
 ```
 
 ## 4. When something is off on the phone

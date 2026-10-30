@@ -61,7 +61,7 @@ pyreps/
 A bottom tab bar (respecting `env(safe-area-inset-bottom)`) with **Today · Topics · Projects · Playground · Stats**. Settings opens from Today.
 - **Today**: due count, new count, streak, a big "Start today's reps" button, and "Python ready ●" status.
 - **Session**: a full-screen card player with a progress bar and a close button (progress is saved per card). It ends with a summary: right/wrong per topic, next due counts.
-- **Topics**: the 12 topics with mastery bars. Tap one for "Practise 10" and a card list (with previews).
+- **Topics**: the 12 core topics, then the 6 domain decks, with mastery bars. Tap one for "Practise 10" and a card list (with previews).
 - **Projects**: a list of projects with step progress. The project view shows the step card, file tabs, Run, and Export file.
 - **Playground**: free editor plus output. It has the `data/` files and `voicelab`, and keeps the last code.
 - **Stats**: streak calendar (last 8 weeks), 7-day pass rate, reviews per day, cards by state.
@@ -85,7 +85,7 @@ type Project = { id: string; title: string; summary: string; files: Record<strin
 
 ## Python runtime
 ### Worker (`src/python/worker.ts`)
-- Loads Pyodide from `/pyodide/` (same origin, precached), then writes `seed/data/*` to `/home/pyodide/data/` and `voicelab.py` + `harness.py` to `/home/pyodide/`. It then imports `harness`.
+- Loads Pyodide from `/pyodide/` (same origin, precached), then writes `seed/data/*` to `/home/pyodide/data/` and `voicelab.py` + `harness.py` to `/home/pyodide/`. It then imports `harness`. The seed files are kept in `/opt/pyreps-seed/` and copied back into `/home/pyodide/` before every run, so one run can't damage them for the next.
 - Message protocol (all messages carry a `runId`):
 ```ts
 // main -> worker
@@ -93,12 +93,15 @@ type Project = { id: string; title: string; summary: string; files: Record<strin
 { type: "run", runId, code: string, mode: "plain" | "test", tests?: string, files?: Record<string,string> }
 // worker -> main
 { type: "ready", pythonVersion }
+{ type: "init-error", message }                     // Pyodide failed to load
 { type: "stdout" | "stderr", runId, text }          // streamed, batched
 { type: "done", runId, ok: boolean, error?: { type, message, traceback, line? }, checks?: { passed: boolean; failures: string[] }, ms }
 ```
-- Each run gets a **fresh globals dict** (`pyodide.globals.get("dict")()`) with `__name__ = "__main__"`, so runs don't leak variables. The cwd is `/home/pyodide`. Project files are written to `/home/pyodide/project/` before the run.
+- Each run starts like a new process: a fresh `__main__` module with `__name__ = "__main__"`, and the harness resets user-imported modules, files, cwd, `os.environ`, `sys.argv`, logging and `sys.stdout`. The cwd is `/home/pyodide`. Project files are written to `/home/pyodide/project/` before the run.
 - Tracebacks: show only the user's frames, with the filename shown as `main.py` and line numbers matching the editor.
 - `SystemExit` with code 0 or None counts as success. Any other code is reported as "exited with code N", not as a crash.
+- **Pyodide limits** (found in Phase 1): no threads, no processes (`subprocess.run` raises `OSError`), `asyncio.run()` fails because the entry point is synchronous, `hashlib.pbkdf2_hmac` is missing, and `input()` raises at once. See CONTENT.md rule 10.
+- **Lock after load**: the page CSP doesn't apply inside a same-origin worker (it uses its own response headers, and GitHub Pages sends none). So once Pyodide has loaded, the worker deletes network and storage APIs (`fetch`, `XMLHttpRequest`, `WebSocket`, `indexedDB`, `caches`, `importScripts`, `navigator`, …) and blocks code-from-text (`eval`, `Function`, string timers), so `import js` can't reach them. This is a JavaScript lock, not one the browser enforces.
 
 ### Client (`src/python/client.ts`)
 - Singleton: `python.run(code, opts): Promise<RunResult>`.
@@ -152,14 +155,14 @@ db.version(1).stores({
 - Content updates: when a card id disappears from content, keep its state but ignore it. When a card's text changes, keep its state; a changed `id` means a new card.
 
 ## Mobile editor (`components/CodeEditor.tsx`, `SymbolBar.tsx`)
-- A plain `<textarea>` with `autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text"`, monospace 15 px, ligatures off, `tab-size: 4`, horizontal scroll (no wrapping), line numbers in a gutter.
+- A plain `<textarea>` with `autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text"`, monospace 16 px (iOS Safari zooms into inputs with smaller text), ligatures off, `tab-size: 4`, horizontal scroll (no wrapping), line numbers in a gutter.
 - Don't use CodeMirror or Monaco in v1. They're heavy and fragile on the iOS keyboard. Syntax highlighting is only needed for read-only code (CodeView), with a tiny tokenizer or Prism with just Python.
 - **SymbolBar**: sticky above the keyboard. Position it with `visualViewport` resize/scroll events so it stays visible when the keyboard opens. Keys: `⇥` `(` `)` `[` `]` `{` `}` `:` `"` `'` `=` `_` `*` `.` `,` `#` `←` `→` `↶`. Typing an opening bracket inserts the pair and puts the caret between them.
 - Enter after a line ending in `:` adds 4 spaces of extra indent. Backspace at an indent removes 4 spaces.
 - The undo button keeps its own small undo stack (iOS shake-to-undo isn't reliable).
 
 ## PWA and offline
-- `vite-plugin-pwa` (Workbox `generateSW`): precache the app shell, `content.json`, `seed/data`, fonts and **the Pyodide files** (`pyodide.asm.js`, `pyodide.asm.wasm`, `python_stdlib.zip`, `pyodide-lock.json`, `pyodide.mjs`). Raise `maximumFileSizeToCacheInBytes` to cover the wasm file.
+- `vite-plugin-pwa` (Workbox `generateSW`): precache the app shell, `content.json`, `seed/data`, fonts and **the Pyodide files** (`pyodide.asm.mjs`, `pyodide.asm.wasm`, `python_stdlib.zip`, `pyodide-lock.json`, `pyodide.mjs`). Raise `maximumFileSizeToCacheInBytes` to cover the wasm file.
 - Manifest: `display: standalone`, `start_url` and `scope` set to the Pages base path, `theme_color` and `background_color` for both colour schemes, apple-touch-icon 180 px.
 - Show an update toast when a new service worker is waiting ("New version, tap to reload").
 - Set `base` in `vite.config.ts` to `/pyreps/` (the GitHub Pages repo path), and use the router's `basename`. **HashRouter** avoids 404s on GitHub Pages deep links.
@@ -172,9 +175,9 @@ db.version(1).stores({
 - Code blocks scroll horizontally. Never let the page body scroll sideways.
 
 ## Security notes
-- All user code runs inside the worker's WebAssembly sandbox. The worker has no access to the DOM or IndexedDB.
+- All user code runs inside the worker's WebAssembly sandbox. The worker has no access to the DOM, and after load no access to IndexedDB or the network.
 - Content is trusted (it's in the repo), but render it as text. No `dangerouslySetInnerHTML`, except for the syntax highlighter output built from escaped tokens.
-- CSP via a `<meta http-equiv>` tag: `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'`. Pyodide may also need `'unsafe-eval'`; verify, and add it only if needed, with a comment.
+- CSP via a `<meta http-equiv>` tag: `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'`. The page doesn't need `'unsafe-eval'` (checked in Phase 1). Pyodide uses `eval` inside its worker, where this CSP doesn't apply; see "Lock after load".
 - No third-party requests at runtime.
 
 ## Deployment

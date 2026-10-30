@@ -15,10 +15,11 @@ PyReps is a free, offline-first PWA for iPhone. It makes Bati practise Python wi
 npm run dev                            # Vite dev server (use --host to test on the iPhone over Wi-Fi)
 npm run build                          # builds content.json, then the app
 npm test                               # vitest
-npm run e2e                            # playwright (iPhone profile)
+npm run e2e                            # builds, then playwright (iPhone profile)
 npm run lint
-python3 scripts/validate_content.py    # MUST be green before committing content
-python3 scripts/validate_content.py --topic dicts --verbose
+# Python: one-time `python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt`
+.venv/bin/python scripts/validate_content.py    # MUST be green before committing content
+.venv/bin/python scripts/validate_content.py --topic dicts --verbose
 ```
 
 ## Hard rules
