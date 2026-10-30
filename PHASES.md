@@ -9,7 +9,7 @@ Goal: Bati can open a URL on his iPhone, add it to the Home Screen, and see the 
 - [x] Vite + React + TS (strict) + Tailwind + Zustand + Dexie + HashRouter. ESLint + Prettier. Exact versions pinned.
 - [x] Self-hosted fonts (Atkinson Hyperlegible, JetBrains Mono), colour tokens for light and dark, safe-area-aware bottom tab bar with the 5 tabs (placeholder screens).
 - [x] `vite-plugin-pwa`: manifest, icons (180/192/512/maskable), offline app shell, update toast.
-- [ ] GitHub Actions deploy to GitHub Pages (`base: "/pyreps/"`). README section "Install on iPhone".
+- [x] GitHub Actions deploy to GitHub Pages (`base: "/pyreps/"`). README section "Install on iPhone".
 - [x] Vitest and Playwright set up. One e2e test opens the app in an iPhone profile and switches tabs.
 **Done when:** the deployed URL works on the iPhone, it installs to the Home Screen, it opens in airplane mode, and `npm test` passes.
 
