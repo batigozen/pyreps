@@ -25,12 +25,12 @@ Goal: real Python runs offline on the phone, safely.
 
 ## Phase 2: Content pipeline and tap-only cards
 Goal: the four tap-friendly card types work with real content.
-- [ ] `src/content/schema.ts` (Zod) + `scripts/build_content.ts` → `src/generated/content.json`. The build fails on invalid content.
-- [ ] `scripts/validate_content.py` (already provided) runs in CI with Python 3.14 (to match Pyodide). Fix it if needed, but don't weaken the checks.
-- [ ] `CodeView` (read-only, highlighted, line numbers, horizontal scroll, tappable lines for spot_bug).
-- [ ] `PredictCard` (typed answer, or options when given), `McqCard`, `FillCard` (chip picker per blank), `SpotBugCard` (tap line → show diff to fixed code). Shared `CardFrame`: prompt, body, Check button, result banner, `explain`, "Show answer", Next.
-- [ ] `grading.ts` pure functions with unit tests (normalisation, multi-blank, and so on).
-- [ ] A temporary "Card gallery" screen to try every seed card.
+- [x] `src/content/schema.ts` (Zod) + `scripts/build_content.ts` → `src/generated/content.json`. The build fails on invalid content.
+- [x] `scripts/validate_content.py` (already provided) runs in CI with Python 3.14 (to match Pyodide). Fix it if needed, but don't weaken the checks.
+- [x] `CodeView` (read-only, highlighted, line numbers, horizontal scroll, tappable lines for spot_bug).
+- [x] `PredictCard` (typed answer, or options when given), `McqCard`, `FillCard` (chip picker per blank), `SpotBugCard` (tap line → show diff to fixed code). Shared `CardFrame`: prompt, body, Check button, result banner, `explain`, "Show answer", Next.
+- [x] `grading.ts` pure functions with unit tests (normalisation, multi-blank, and so on).
+- [x] A temporary "Card gallery" screen to try every seed card.
 **Done when:** every seed card of these types can be answered right and wrong on the iPhone, with correct feedback.
 
 ## Phase 3: Parsons and Write cards, mobile editor
