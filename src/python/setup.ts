@@ -1,22 +1,11 @@
 import type { PyodideAPI } from "pyodide";
 import harness from "./harness.py?raw";
-import voicelab from "../../python/voicelab.py?raw";
-import cdrs from "../../seed/data/cdrs.csv?raw";
-import pods from "../../seed/data/pods.json?raw";
-import prom from "../../seed/data/prom.json?raw";
-import sipLog from "../../seed/data/sip.log?raw";
+import { SEED_FILES as SAMPLE_FILES } from "./seedFiles.ts";
 
 const SEED_DIR = "/opt/pyreps-seed";
 
 // Copied into /home/pyodide before every run, so a run can't damage them for the next one.
-const SEED_FILES: Record<string, string> = {
-  "harness.py": harness,
-  "voicelab.py": voicelab,
-  "data/cdrs.csv": cdrs,
-  "data/pods.json": pods,
-  "data/prom.json": prom,
-  "data/sip.log": sipLog,
-};
+const SEED_FILES: Record<string, string> = { "harness.py": harness, ...SAMPLE_FILES };
 
 // Modules most cards use, imported up front so the first run is fast on the phone.
 const WARM_IMPORTS =

@@ -1,8 +1,10 @@
 """voicelab: sample data and stand-ins for real systems.
 
-The same file is used in two places:
+The same file is used in three places:
   * inside the PyReps app (Pyodide), where data files live in /home/pyodide/data/
   * by scripts/validate_content.py (CPython), where they live in seed/data/
+  * next to a script exported from the app to a-Shell, with the data files in the
+    same folder (no data/ subfolder)
 
 On a real machine you'd replace fake_kubectl() with
     subprocess.run(["kubectl", *args], capture_output=True, text=True, check=True).stdout
@@ -13,7 +15,9 @@ import csv
 import os
 from pathlib import Path
 
-DATA = Path(os.environ.get("VOICELAB_DATA", Path(__file__).parent / "data"))
+_HERE = Path(__file__).parent
+_DEFAULT = _HERE / "data" if (_HERE / "data").is_dir() else _HERE
+DATA = Path(os.environ.get("VOICELAB_DATA") or _DEFAULT)
 
 
 def load_cdrs() -> list[dict]:
