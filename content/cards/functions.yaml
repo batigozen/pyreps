@@ -1,0 +1,575 @@
+# FUNCTIONS: defaults, functions as values, closures and decorators (about 20 cards).
+- id: functions-predict-mutable-default
+  type: predict
+  topic: functions
+  level: 3
+  prompt: What does this print?
+  code: |
+    def add_alarm(name, alarms=[]):
+        alarms.append(name)
+        return alarms
+
+    add_alarm("high-503")
+    print(add_alarm("low-asr"))
+  answer: "['high-503', 'low-asr']"
+  options:
+    - "['high-503', 'low-asr']"
+    - "['low-asr']"
+    - "['high-503']"
+    - "[]"
+  explain: >-
+    The default [] is made once, when the def runs, not on every call. Both calls
+    append to the same list. Use alarms=None and create the list inside the function.
+  tags: [defaults, mutable]
+
+- id: functions-predict-hints-not-enforced
+  type: predict
+  topic: functions
+  level: 2
+  prompt: What does this print?
+  code: |
+    def double(code: int) -> int:
+        return code * 2
+
+    print(double("48"), double(48))
+  answer: "4848 96"
+  options:
+    - "4848 96"
+    - "96 96"
+    - "48 96"
+    - "4848 4848"
+  explain: >-
+    Type hints are notes for people and tools like mypy. Python doesn't check them
+    when the code runs, so double("48") repeats the string: "4848". Unlike Java, a
+    wrong type is only found by a checker or a test.
+  tags: [type-hints]
+
+- id: functions-predict-dispatch
+  type: predict
+  topic: functions
+  level: 2
+  prompt: What does this print?
+  code: |
+    def answered(code):
+        return "answered"
+
+    def busy(code):
+        return "busy, retry later"
+
+    handlers = {"200": answered, "486": busy}
+    for code in ["486", "200"]:
+        print(code, handlers[code](code))
+  answer: |-
+    486 busy, retry later
+    200 answered
+  explain: >-
+    Functions are values: the dict stores them without calling them. handlers[code]
+    picks one, and (code) calls it. This replaces a long if/elif chain.
+  tags: [dispatch, first-class]
+
+- id: functions-predict-closure
+  type: predict
+  topic: functions
+  level: 2
+  prompt: What does this print?
+  code: |
+    def make_check(limit):
+        def is_slow(ms):
+            return ms > limit
+        return is_slow
+
+    slow = make_check(1000)
+    print(slow(3087), slow(445))
+  answer: "True False"
+  explain: >-
+    is_slow remembers limit from make_check, even after make_check has returned.
+    That memory is a closure. Each make_check(...) call makes a new check with its own
+    limit.
+  tags: [closure]
+
+- id: functions-predict-decorator-runs
+  type: predict
+  topic: functions
+  level: 3
+  prompt: What does this print?
+  code: |
+    def log(func):
+        def wrapper(*args):
+            print("calling", func.__name__)
+            return func(*args)
+        return wrapper
+
+    @log
+    def asr(ok, total):
+        return round(ok / total, 2)
+
+    print(asr(6, 15))
+  answer: |-
+    calling asr
+    0.4
+  options:
+    - "calling asr\n0.4"
+    - "0.4"
+    - "0.4\ncalling asr"
+    - "calling wrapper\n0.4"
+  explain: >-
+    @log replaces asr with wrapper. Calling asr(6, 15) runs wrapper, which prints
+    first and then calls the real asr. func.__name__ is still "asr", because func is
+    the original function.
+  tags: [decorator]
+
+- id: functions-predict-lost-name
+  type: predict
+  topic: functions
+  level: 3
+  prompt: What does this print?
+  code: |
+    def log(func):
+        def wrapper(*args):
+            return func(*args)
+        return wrapper
+
+    @log
+    def asr(ok, total):
+        return ok / total
+
+    print(asr.__name__)
+  answer: "wrapper"
+  options:
+    - "wrapper"
+    - "asr"
+    - "log"
+    - "None"
+  explain: >-
+    After decorating, the name asr points to wrapper, so its __name__ is "wrapper".
+    Logs and error messages then show the wrong name. @functools.wraps(func) on the
+    wrapper copies the name and docstring over.
+  tags: [decorator, wraps]
+
+- id: functions-mcq-decorator-means
+  type: mcq
+  topic: functions
+  level: 1
+  prompt: Writing @timed above def check() is the same as which line?
+  options:
+    - check = timed(check)
+    - check = check(timed)
+    - check = timed()
+    - timed(check) runs each time, and check stays the same
+  correct: 0
+  explain: >-
+    A decorator is a function that takes a function and returns a new one. The @ line
+    runs once, when the def runs, and puts the result in the old name.
+  tags: [decorator]
+
+- id: functions-mcq-none-default-fix
+  type: mcq
+  topic: functions
+  level: 2
+  prompt: The alarms list is shared by every call. Which change fixes it?
+  code: |
+    def add_alarm(name, alarms=[]):
+        alarms.append(name)
+        return alarms
+  options:
+    - "Use alarms=None, then `if alarms is None: alarms = []` inside"
+    - "Use alarms=list() instead of alarms=[]"
+    - "Call alarms.clear() at the start"
+    - "Use alarms=() instead of alarms=[]"
+  correct: 0
+  explain: >-
+    None is safe as a default because it never changes. A new list is then made on
+    every call. list() is still run only once. clear() would delete a list the caller
+    passed in. A tuple has no append.
+  tags: [defaults, mutable]
+
+- id: functions-mcq-lambda
+  type: mcq
+  topic: functions
+  level: 1
+  prompt: "Which is the same as sorted(rows, key=lambda row: row[\"trunk\"])?"
+  options:
+    - "def by_trunk(row): return row[\"trunk\"], then key=by_trunk"
+    - "key=row[\"trunk\"]"
+    - "key=lambda: row[\"trunk\"]"
+    - "def by_trunk(row): return row[\"trunk\"], then key=by_trunk()"
+  correct: 0
+  explain: >-
+    A lambda is a small function without a name. key= needs the function itself, not
+    the result of calling it, so it is key=by_trunk, without brackets.
+  tags: [lambda]
+
+- id: functions-fill-none-default
+  type: fill
+  topic: functions
+  level: 2
+  prompt: Fix the default so each call gets a new list.
+  code: |
+    def add_alarm(name, alarms=____):
+        if alarms is None:
+            alarms = []
+        alarms.append(name)
+        return alarms
+
+    add_alarm("high-503")
+    print(add_alarm("low-asr"))
+  blanks:
+    - answer: None
+      options: [None, "[]", "list()", "{}"]
+  expected_output: "['low-asr']"
+  explain: >-
+    With None as the default, the `if` makes a new list on every call, so the second
+    call doesn't see "high-503". [] or list() would be one shared list again.
+  tags: [defaults, mutable]
+
+- id: functions-fill-wrapper-args
+  type: fill
+  topic: functions
+  level: 2
+  prompt: Pass every argument through to the real function.
+  code: |
+    def log(func):
+        def wrapper(*args, **kwargs):
+            print("calling", func.__name__)
+            return func(____args, ____kwargs)
+        return wrapper
+
+    @log
+    def connect(host, port=5060):
+        return f"{host}:{port}"
+
+    print(connect("sbc-ic-01", port=5061))
+  blanks:
+    - answer: "*"
+      options: ["*", "**", "&"]
+    - answer: "**"
+      options: ["**", "*", "&"]
+  expected_output: |-
+    calling connect
+    sbc-ic-01:5061
+  explain: >-
+    The wrapper collects everything with *args and **kwargs, then spreads it back
+    with the same stars. That way one decorator works for any function signature.
+  tags: [decorator, args, kwargs]
+
+- id: functions-fill-wraps
+  type: fill
+  topic: functions
+  level: 3
+  prompt: Keep the decorated function's real name.
+  code: |
+    import functools
+
+    def log(func):
+        @functools.____(func)
+        def wrapper(*args):
+            return func(*args)
+        return wrapper
+
+    @log
+    def asr(ok, total):
+        return ok / total
+
+    print(asr.__name__)
+  blanks:
+    - answer: wraps
+      options: [wraps, wrap, partial, cache]
+  expected_output: "asr"
+  explain: >-
+    functools.wraps(func) copies __name__, __doc__ and more from func to the wrapper.
+    Without it, logs and tracebacks would say "wrapper".
+  tags: [decorator, wraps]
+
+- id: functions-spotbug-return-wrapper
+  type: spot_bug
+  topic: functions
+  level: 2
+  prompt: The decorator should print a line before each call. Tap the line with the bug.
+  code: |
+    def log(func):
+        def wrapper(*args):
+            print("calling", func.__name__)
+            return func(*args)
+        return wrapper()
+
+    @log
+    def ping(host):
+        return f"pong from {host}"
+
+    print(ping("sbc-ic-01"))
+  bug_line: 5
+  fixed_code: |
+    def log(func):
+        def wrapper(*args):
+            print("calling", func.__name__)
+            return func(*args)
+        return wrapper
+
+    @log
+    def ping(host):
+        return f"pong from {host}"
+
+    print(ping("sbc-ic-01"))
+  expected_output: |-
+    calling ping
+    pong from sbc-ic-01
+  explain: >-
+    A decorator must return the wrapper function itself. wrapper() calls it right
+    away, during the @log line, and ping() is then called with no host, which raises
+    TypeError.
+  tags: [decorator]
+
+- id: functions-spotbug-missing-return
+  type: spot_bug
+  topic: functions
+  level: 2
+  prompt: This should print 0.4, not None. Tap the line with the bug.
+  code: |
+    def log(func):
+        def wrapper(*args):
+            print("calling", func.__name__)
+            func(*args)
+        return wrapper
+
+    @log
+    def asr(ok, total):
+        return round(ok / total, 2)
+
+    print(asr(6, 15))
+  bug_line: 4
+  fixed_code: |
+    def log(func):
+        def wrapper(*args):
+            print("calling", func.__name__)
+            return func(*args)
+        return wrapper
+
+    @log
+    def asr(ok, total):
+        return round(ok / total, 2)
+
+    print(asr(6, 15))
+  expected_output: |-
+    calling asr
+    0.4
+  explain: >-
+    The wrapper called the real function but threw its result away, so the caller got
+    None. A wrapper must return func(...)'s result.
+  tags: [decorator]
+
+- id: functions-spotbug-late-binding
+  type: spot_bug
+  topic: functions
+  level: 3
+  prompt: Each check should use its own limit (500, then 1000). Tap the line with the bug.
+  code: |
+    checks = []
+    for limit in (500, 1000):
+        checks.append(lambda ms: ms > limit)
+    print([check(700) for check in checks])
+  bug_line: 3
+  fixed_code: |
+    checks = []
+    for limit in (500, 1000):
+        checks.append(lambda ms, limit=limit: ms > limit)
+    print([check(700) for check in checks])
+  expected_output: "[True, False]"
+  explain: >-
+    A closure looks up `limit` when it runs, not when it is made. By then the loop
+    has finished and limit is 1000 for both. limit=limit stores the current value as
+    a default, once per lambda.
+  tags: [closure, lambda]
+
+- id: functions-parsons-retry-factory
+  type: parsons
+  topic: functions
+  level: 3
+  prompt: Put the lines in order to build a retry(times) decorator factory.
+  lines:
+    - "def retry(times):"
+    - "    def deco(func):"
+    - "        def wrapper(*args):"
+    - "            tries = (func(*args) for _ in range(times))"
+    - "            return any(tries)"
+    - "        return wrapper"
+    - "    return deco"
+    - "print(retry(3)(lambda: False)())"
+  distractors:
+    - "    return deco()"
+  expected_output: "False"
+  explain: >-
+    @retry(3) first calls retry(3), which returns the real decorator, deco. deco then
+    wraps the function. That's three levels: the setting, the function, the call.
+    any() stops at the first truthy try, so a working call isn't repeated.
+  tags: [decorator, factory, any]
+
+- id: functions-parsons-dispatch
+  type: parsons
+  topic: functions
+  level: 2
+  prompt: Put the lines in order to handle each SIP code, with a fallback for unknown codes.
+  setup: |
+    def answered(code):
+        return f"{code} answered"
+
+    def busy(code):
+        return f"{code} busy"
+
+    def unknown(code):
+        return f"{code} unknown"
+
+    codes = ["200", "486", "999"]
+  lines:
+    - "handlers = {\"200\": answered, \"486\": busy}"
+    - "for code in codes:"
+    - "    handle = handlers.get(code, unknown)"
+    - "    print(handle(code))"
+  distractors:
+    - "    handle = handlers[code]"
+    - "    print(handle)"
+  expected_output: |-
+    200 answered
+    486 busy
+    999 unknown
+  explain: >-
+    .get(code, unknown) returns the fallback function for a code that isn't in the
+    dict. handlers[code] would raise KeyError on "999". print(handle) prints the
+    function itself, not its result.
+  tags: [dispatch, first-class]
+
+- id: functions-parsons-closure-counter
+  type: parsons
+  topic: functions
+  level: 2
+  prompt: Put the lines in order so it prints 2.
+  lines:
+    - "def make_counter(count=0):"
+    - "    def bump():"
+    - "        nonlocal count"
+    - "        count += 1"
+    - "        return count"
+    - "    return bump"
+    - "calls = make_counter()"
+    - "calls()"
+    - "print(calls())"
+  distractors:
+    - "        global count"
+  expected_output: "2"
+  explain: >-
+    nonlocal lets the inner function change a variable of the outer function. Each
+    make_counter() call gets its own count. global would look for a module variable
+    called count and fail.
+  tags: [closure, nonlocal]
+
+- id: functions-write-dispatch
+  type: write
+  topic: functions
+  level: 2
+  prompt: "Write run(action, *args): call the matching function, or return \"unknown action: <name>\"."
+  starter: |
+    def restart(pod):
+        return f"restarted {pod}"
+
+    def scale(deploy, n):
+        return f"scaled {deploy} to {n}"
+
+    ACTIONS = {"restart": restart, "scale": scale}
+
+    def run(action, *args):
+        """run("scale", "web", 3) -> "scaled web to 3"."""
+        return ""
+
+    print(run("restart", "call-api"))
+  tests: |
+    check(lambda: run("scale", "sip-proxy", 3) == "scaled sip-proxy to 3", "run('scale', 'sip-proxy', 3)")
+    check(lambda: run("restart", "call-api") == "restarted call-api", "run('restart', 'call-api')")
+    check(lambda: run("delete", "x") == "unknown action: delete", "an unknown action gives 'unknown action: delete'")
+  hint: >-
+    ACTIONS.get(action) gives the function or None. If it is None, return the
+    message. Otherwise call it with func(*args).
+  solution: |
+    def restart(pod):
+        return f"restarted {pod}"
+
+    def scale(deploy, n):
+        return f"scaled {deploy} to {n}"
+
+    ACTIONS = {"restart": restart, "scale": scale}
+
+    def run(action, *args):
+        func = ACTIONS.get(action)
+        if func is None:
+            return f"unknown action: {action}"
+        return func(*args)
+
+    print(run("restart", "call-api"))
+  explain: >-
+    A dict of functions is a dispatch table: adding an action is one new entry, not a
+    new elif. *args passes on however many arguments each action needs.
+  tags: [dispatch, args]
+
+- id: functions-write-retry
+  type: write
+  topic: functions
+  level: 3
+  prompt: "Write retry(times): call the function until it returns something truthy, at most times times."
+  starter: |
+    import functools
+
+    def retry(times):
+        """Return the first truthy result, or None."""
+        def deco(func):
+            return func
+        return deco
+
+    answers = iter([None, None, "200 OK"])
+
+    @retry(3)
+    def invite():
+        return next(answers)
+
+    print(invite())
+  tests: |
+    results = iter([None, "200 OK"])
+    @retry(3)
+    def call():
+        return next(results)
+    check(lambda: call() == "200 OK", "the second try gives '200 OK'")
+    tries = []
+    @retry(2)
+    def down():
+        tries.append(1)
+        return None
+    check(lambda: down() is None and len(tries) == 2, "retry(2) tries 2 times, then returns None")
+    check(lambda: down.__name__ == "down", "use functools.wraps to keep the name 'down'")
+  hint: >-
+    Inside deco, define wrapper(*args, **kwargs) with @functools.wraps(func). Loop
+    `for _ in range(times)`, call func, and return the result if it is truthy. After
+    the loop, return None. deco returns wrapper.
+  solution: |
+    import functools
+
+    def retry(times):
+        def deco(func):
+            @functools.wraps(func)
+            def wrapper(*args, **kwargs):
+                for _ in range(times):
+                    result = func(*args, **kwargs)
+                    if result:
+                        return result
+                return None
+            return wrapper
+        return deco
+
+    answers = iter([None, None, "200 OK"])
+
+    @retry(3)
+    def invite():
+        return next(answers)
+
+    print(invite())
+  explain: >-
+    A decorator factory has three levels: retry(times) holds the setting, deco takes
+    the function, wrapper runs on each call. On a real machine you'd also wait between
+    tries, for example time.sleep(2 ** attempt).
+  tags: [decorator, factory, wraps]
