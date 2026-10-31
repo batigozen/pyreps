@@ -10,6 +10,7 @@ import {
   practisedDays,
   saveReview,
   saveSession,
+  setTopicUnlocked,
   updateSettings,
 } from "../../src/db/db.ts";
 import { Rating, review } from "../../src/srs/scheduler.ts";
@@ -86,6 +87,18 @@ describe("settings and session", () => {
   it("keeps defaults for fields never changed", async () => {
     await updateSettings(defaults, { newPerDay: 12 });
     expect(await getSettings(defaults)).toEqual({ ...defaults, newPerDay: 12 });
+  });
+
+  it("never loses a topic toggle, even when two run at once", async () => {
+    const order = ["setup", "dicts", "unpack"];
+    const base = { ...defaults, unlocked: ["setup", "dicts", "unpack"] };
+    await Promise.all([
+      setTopicUnlocked(base, "setup", false, order),
+      setTopicUnlocked(base, "unpack", false, order),
+    ]);
+    expect((await getSettings(base)).unlocked).toEqual(["dicts"]);
+    await setTopicUnlocked(base, "setup", true, order);
+    expect((await getSettings(base)).unlocked).toEqual(["setup", "dicts"]);
   });
 
   it("saves and loads a session", async () => {

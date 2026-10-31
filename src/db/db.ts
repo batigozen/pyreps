@@ -97,6 +97,25 @@ export async function updateSettings(defaults: Settings, change: Partial<Setting
   });
 }
 
+/**
+ * Turns one topic on or off. Reads the saved list inside the transaction, so two fast
+ * taps can't overwrite each other. `order` keeps the list in course order.
+ */
+export async function setTopicUnlocked(
+  defaults: Settings,
+  topicId: string,
+  on: boolean,
+  order: readonly string[],
+) {
+  await db.transaction("rw", db.kv, async () => {
+    const current = await getSettings(defaults);
+    const next = new Set(current.unlocked);
+    if (on) next.add(topicId);
+    else next.delete(topicId);
+    await setKv(SETTINGS_KEY, { ...current, unlocked: order.filter((id) => next.has(id)) });
+  });
+}
+
 // --- reviews ---------------------------------------------------------------------------
 
 export async function getStates(): Promise<Map<string, ReviewStateRow>> {

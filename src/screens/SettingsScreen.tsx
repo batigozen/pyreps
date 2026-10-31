@@ -4,10 +4,11 @@ import Icon from "../components/Icon.tsx";
 import ScreenHeader from "../components/ScreenHeader.tsx";
 import { content } from "../content/content.ts";
 import type { Topic } from "../content/schema.ts";
-import { getKv, updateSettings, type FontSize, type Settings } from "../db/db.ts";
+import { getKv, setTopicUnlocked, updateSettings, type FontSize, type Settings } from "../db/db.ts";
 import { DEFAULT_SETTINGS, useSettings } from "../db/useSettings.ts";
 
 const CORE_MODULES = 12;
+const TOPIC_ORDER = content.topics.map((topic) => topic.id);
 const FONT_SIZES: { value: FontSize; label: string }[] = [
   { value: "small", label: "Small" },
   { value: "medium", label: "Medium" },
@@ -69,12 +70,9 @@ export default function SettingsScreen() {
         <input
           type="checkbox"
           checked={unlocked.has(topic.id)}
-          onChange={(event) => {
-            const next = new Set(unlocked);
-            if (event.target.checked) next.add(topic.id);
-            else next.delete(topic.id);
-            save({ unlocked: content.topics.map((t) => t.id).filter((id) => next.has(id)) });
-          }}
+          onChange={(event) =>
+            void setTopicUnlocked(DEFAULT_SETTINGS, topic.id, event.target.checked, TOPIC_ORDER)
+          }
           className="size-6 shrink-0 accent-[var(--accent)]"
         />
         <span>
