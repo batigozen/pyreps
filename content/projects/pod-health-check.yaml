@@ -1,0 +1,229 @@
+# Mini project. Each step is a write card whose starter is the previous step's
+# code plus the new TODO, so every step runs and validates on its own.
+id: pod-health-check
+order: 3
+title: Pod health check
+summary: Read kubectl JSON, find unhealthy pods, and return a Nagios exit code.
+files: {}
+steps:
+- id: pods-1-load
+  level: 2
+  prompt: 'Turn the kubectl JSON into one small dict per pod: name, phase, ready, restarts.'
+  starter: |
+    import json
+    from voicelab import fake_kubectl
+
+    def load_pods(text):
+        """One dict per pod: name, phase, ready, restarts."""
+        return []
+
+    for pod in load_pods(fake_kubectl()):
+        print(pod)
+  solution: |
+    import json
+    from voicelab import fake_kubectl
+
+    def load_pods(text):
+        pods = []
+        for item in json.loads(text)["items"]:
+            status = item["status"]
+            statuses = status.get("containerStatuses", [])
+            ready = [c["ready"] for c in statuses]
+            restarts = sum(c["restartCount"] for c in statuses)
+            pods.append({
+                "name": item["metadata"]["name"],
+                "phase": status["phase"],
+                "ready": bool(ready) and all(ready),
+                "restarts": restarts,
+            })
+        return pods
+
+    for pod in load_pods(fake_kubectl()):
+        print(pod)
+  tests: |
+    pods = load_pods(fake_kubectl())
+    by = {p["name"]: p for p in pods}
+    check(lambda: len(pods) == 5, "there are 5 pods")
+    check(lambda: by["cdr-exporter-g62q9xtk4r-bjmw2"] == {"name": "cdr-exporter-g62q9xtk4r-bjmw2", "phase": "Running", "ready": False, "restarts": 6}, "cdr-exporter: Running, not ready, 6 restarts")
+    check(lambda: by["kpi-collector-5d8f7c9b4f-2xvkp"]["ready"] is False, "a Pending pod with no containers is not ready")
+    check(lambda: by["call-api-6d4b8f7c9a-m2xqp"]["ready"] is True, "call-api is ready")
+  hint: 'Loop over json.loads(text)["items"]. containerStatuses may be missing: use .get(..., []). ready means there is at least one container and all are ready.'
+  explain: Turning the big kubectl JSON into small flat dicts first keeps the checks in the next steps short and easy to test.
+- id: pods-2-problems
+  level: 2
+  prompt: 'List the problems of one pod: "not running", "not ready", and "restarts N" from max_restarts up.'
+  starter: |
+    import json
+    from voicelab import fake_kubectl
+
+    def load_pods(text):
+        pods = []
+        for item in json.loads(text)["items"]:
+            status = item["status"]
+            statuses = status.get("containerStatuses", [])
+            ready = [c["ready"] for c in statuses]
+            restarts = sum(c["restartCount"] for c in statuses)
+            pods.append({
+                "name": item["metadata"]["name"],
+                "phase": status["phase"],
+                "ready": bool(ready) and all(ready),
+                "restarts": restarts,
+            })
+        return pods
+
+    def problems(pod, max_restarts=3):
+        """Short problem texts for one pod; [] when healthy."""
+        return []
+
+    for pod in load_pods(fake_kubectl()):
+        print(pod["name"], problems(pod))
+  solution: |
+    import json
+    from voicelab import fake_kubectl
+
+    def load_pods(text):
+        pods = []
+        for item in json.loads(text)["items"]:
+            status = item["status"]
+            statuses = status.get("containerStatuses", [])
+            ready = [c["ready"] for c in statuses]
+            restarts = sum(c["restartCount"] for c in statuses)
+            pods.append({
+                "name": item["metadata"]["name"],
+                "phase": status["phase"],
+                "ready": bool(ready) and all(ready),
+                "restarts": restarts,
+            })
+        return pods
+
+    def problems(pod, max_restarts=3):
+        found = []
+        if pod["phase"] != "Running":
+            found.append("not running")
+        if not pod["ready"]:
+            found.append("not ready")
+        if pod["restarts"] >= max_restarts:
+            found.append(f"restarts {pod['restarts']}")
+        return found
+
+    for pod in load_pods(fake_kubectl()):
+        print(pod["name"], problems(pod))
+  tests: |
+    by = {p["name"]: p for p in load_pods(fake_kubectl())}
+    check(lambda: problems(by["cdr-exporter-g62q9xtk4r-bjmw2"]) == ["not ready", "restarts 6"], "cdr-exporter: not ready, restarts 6")
+    check(lambda: problems(by["kpi-collector-5d8f7c9b4f-2xvkp"]) == ["not running", "not ready"], "kpi-collector: not running, not ready")
+    check(lambda: problems(by["call-api-6d4b8f7c9a-m2xqp"]) == [], "call-api (1 restart) is healthy")
+    check(lambda: problems(by["call-api-6d4b8f7c9a-m2xqp"], max_restarts=1) == ["restarts 1"], "with max_restarts=1, call-api's restart counts")
+  hint: Start with found = []. Add "not running" when phase != "Running", "not ready" when not ready, and f"restarts {n}" when restarts >= max_restarts.
+  explain: Returning a list of reasons, not just True or False, tells the on-call engineer what to look at first.
+- id: pods-3-exit-code
+  level: 3
+  prompt: Return (code, lines). A pod that is down or not ready is CRITICAL (2); restarts alone are WARNING (1); no problems is OK (0).
+  starter: |
+    import json
+    from voicelab import fake_kubectl
+
+    def load_pods(text):
+        pods = []
+        for item in json.loads(text)["items"]:
+            status = item["status"]
+            statuses = status.get("containerStatuses", [])
+            ready = [c["ready"] for c in statuses]
+            restarts = sum(c["restartCount"] for c in statuses)
+            pods.append({
+                "name": item["metadata"]["name"],
+                "phase": status["phase"],
+                "ready": bool(ready) and all(ready),
+                "restarts": restarts,
+            })
+        return pods
+
+    def problems(pod, max_restarts=3):
+        found = []
+        if pod["phase"] != "Running":
+            found.append("not running")
+        if not pod["ready"]:
+            found.append("not ready")
+        if pod["restarts"] >= max_restarts:
+            found.append(f"restarts {pod['restarts']}")
+        return found
+
+    def health(pods):
+        """(exit code, report lines) for all pods."""
+        return 0, []
+
+
+    def main():
+        code, lines = health(load_pods(fake_kubectl()))
+        for line in lines:
+            print(line)
+        return code
+
+    if __name__ == "__main__":
+        # On a real machine: sys.exit(main()), for Nagios.
+        print("exit code", main())
+  solution: |
+    import json
+    from voicelab import fake_kubectl
+
+    def load_pods(text):
+        pods = []
+        for item in json.loads(text)["items"]:
+            status = item["status"]
+            statuses = status.get("containerStatuses", [])
+            ready = [c["ready"] for c in statuses]
+            restarts = sum(c["restartCount"] for c in statuses)
+            pods.append({
+                "name": item["metadata"]["name"],
+                "phase": status["phase"],
+                "ready": bool(ready) and all(ready),
+                "restarts": restarts,
+            })
+        return pods
+
+    def problems(pod, max_restarts=3):
+        found = []
+        if pod["phase"] != "Running":
+            found.append("not running")
+        if not pod["ready"]:
+            found.append("not ready")
+        if pod["restarts"] >= max_restarts:
+            found.append(f"restarts {pod['restarts']}")
+        return found
+
+    DOWN = {"not running", "not ready"}
+
+
+    def health(pods):
+        code, lines = 0, []
+        for pod in pods:
+            found = problems(pod)
+            if not found:
+                continue
+            down = any(problem in DOWN for problem in found)
+            code = max(code, 2 if down else 1)
+            level = "CRITICAL" if down else "WARNING"
+            text = ", ".join(found)
+            lines.append(f"{level} {pod['name']}: {text}")
+        if code == 0:
+            lines.append("OK all pods healthy")
+        return code, lines
+
+
+    def main():
+        code, lines = health(load_pods(fake_kubectl()))
+        for line in lines:
+            print(line)
+        return code
+
+    if __name__ == "__main__":
+        # On a real machine: sys.exit(main()), for Nagios.
+        print("exit code", main())
+  tests: |
+    code, lines = health(load_pods(fake_kubectl()))
+    check(lambda: code == 2, "a pod that is not ready makes it CRITICAL (2)")
+    check(lambda: lines[0] == "CRITICAL cdr-exporter-g62q9xtk4r-bjmw2: not ready, restarts 6", "first line: CRITICAL cdr-exporter-...: not ready, restarts 6")
+    check(lambda: health([{"name": "a", "phase": "Running", "ready": True, "restarts": 4}])[0] == 1, "restarts alone give WARNING (1)")
+    check(lambda: health([{"name": "a", "phase": "Running", "ready": True, "restarts": 0}]) == (0, ["OK all pods healthy"]), "all healthy gives (0, ['OK all pods healthy'])")
+  hint: 'For each pod with problems: it is down when "not running" or "not ready" is in the list. Keep code = max(code, 2 if down else 1), and add a line like f"{level} {name}: {'', ''.join(found)}".'
+  explain: max() keeps the worst result, so one CRITICAL pod turns the whole check red. Exported to a-Shell, the same script runs against real kubectl output once you swap fake_kubectl for subprocess.run.

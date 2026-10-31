@@ -1,56 +1,228 @@
-# Mini project. Each step is a `write` card whose starter already contains the
-# previous step's solution plus the new TODO, so every step can run on its own.
+# Mini project. Each step is a write card whose starter is the previous step's
+# code plus the new TODO, so every step runs and validates on its own.
 id: sbc-log-parser
+order: 1
 title: SBC log parser
-summary: Turn raw SBC log lines into data, then report setup time per SBC and the worst calls.
+summary: Turn raw SBC log lines into data, then report setup time per SBC and the slowest calls.
 files: {}
 steps:
-  - id: sbc-1-parse-line
-    prompt: "Step 1 of 3: parse one log line with a regex into a dict. Return None for lines that don't match."
-    level: 2
-    starter: |
-      import re
-      from voicelab import read_log
+- id: sbc-1-parse-line
+  level: 2
+  prompt: Parse one log line with the regex into a dict. Return None for lines that don't match.
+  starter: |
+    import re
+    from voicelab import read_log
 
-      LINE = re.compile(
-          r"^(?P<ts>\S+) (?P<level>\w+)\s+(?P<sbc>\S+) "
-          r"INVITE call-id=(?P<call_id>\S+) "
-          r"from=(?P<caller>\S+) to=(?P<callee>\S+) "
-          r"-> (?P<code>\d{3}) (?P<reason>.+?) "
-          r"setup_ms=(?P<setup_ms>\d+)$"
-      )
+    LINE = re.compile(
+        r"^(?P<ts>\S+) (?P<level>\w+)\s+(?P<sbc>\S+) "
+        r"INVITE call-id=(?P<call_id>\S+) "
+        r"from=(?P<caller>\S+) to=(?P<callee>\S+) "
+        r"-> (?P<code>\d{3}) (?P<reason>.+?) "
+        r"setup_ms=(?P<setup_ms>\d+)$"
+    )
 
-      def parse_line(line):
-          """dict with code and setup_ms as int, or None."""
-          return None
+    def parse_line(line):
+        """dict with code and setup_ms as int, or None."""
+        return None
 
-      print(parse_line(read_log()[4]))
-    tests: |
-      e = parse_line(read_log()[4])
-      check(lambda: e["sbc"] == "sbc-ic-02" and e["code"] == 503, "line 5 is a 503 from sbc-ic-02")
-      check(lambda: isinstance(e["setup_ms"], int), "setup_ms must be an int")
-      check(lambda: parse_line("2026-10-21T09:06:36.500Z INFO  sbc-ic-01 OPTIONS keepalive ok") is None, "non-INVITE lines give None")
-    hint: m = LINE.match(line); return None if m is None; else d = m.groupdict() and convert two fields with int().
-    solution: |
-      import re
-      from voicelab import read_log
+    print(parse_line(read_log()[4]))
+  solution: |
+    import re
+    from voicelab import read_log
 
-      LINE = re.compile(
-          r"^(?P<ts>\S+) (?P<level>\w+)\s+(?P<sbc>\S+) "
-          r"INVITE call-id=(?P<call_id>\S+) "
-          r"from=(?P<caller>\S+) to=(?P<callee>\S+) "
-          r"-> (?P<code>\d{3}) (?P<reason>.+?) "
-          r"setup_ms=(?P<setup_ms>\d+)$"
-      )
+    LINE = re.compile(
+        r"^(?P<ts>\S+) (?P<level>\w+)\s+(?P<sbc>\S+) "
+        r"INVITE call-id=(?P<call_id>\S+) "
+        r"from=(?P<caller>\S+) to=(?P<callee>\S+) "
+        r"-> (?P<code>\d{3}) (?P<reason>.+?) "
+        r"setup_ms=(?P<setup_ms>\d+)$"
+    )
 
-      def parse_line(line):
-          m = LINE.match(line)
-          if m is None:
-              return None
-          d = m.groupdict()
-          d["code"] = int(d["code"])
-          d["setup_ms"] = int(d["setup_ms"])
-          return d
+    def parse_line(line):
+        m = LINE.match(line)
+        if m is None:
+            return None
+        d = m.groupdict()
+        d["code"] = int(d["code"])
+        d["setup_ms"] = int(d["setup_ms"])
+        return d
 
-      print(parse_line(read_log()[4]))
-    explain: Named groups make the match readable; groupdict() turns it into a dict in one call.
+    print(parse_line(read_log()[4]))
+  tests: |
+    e = parse_line(read_log()[4])
+    check(lambda: e["sbc"] == "sbc-ic-02" and e["code"] == 503, "line 5 is a 503 from sbc-ic-02")
+    check(lambda: isinstance(e["setup_ms"], int), "setup_ms must be an int")
+    check(lambda: parse_line("2026-10-21T09:06:36.500Z INFO  sbc-ic-01 OPTIONS keepalive ok") is None, "non-INVITE lines give None")
+  hint: m = LINE.match(line); return None if m is None; else d = m.groupdict() and convert two fields with int().
+  explain: Named groups make the match readable; groupdict() turns it into a dict in one call.
+- id: sbc-2-avg-setup
+  level: 2
+  prompt: 'Return {sbc: average setup_ms} over all INVITE lines, rounded to 1 decimal.'
+  starter: |
+    import re
+    from voicelab import read_log
+
+    LINE = re.compile(
+        r"^(?P<ts>\S+) (?P<level>\w+)\s+(?P<sbc>\S+) "
+        r"INVITE call-id=(?P<call_id>\S+) "
+        r"from=(?P<caller>\S+) to=(?P<callee>\S+) "
+        r"-> (?P<code>\d{3}) (?P<reason>.+?) "
+        r"setup_ms=(?P<setup_ms>\d+)$"
+    )
+
+    def parse_line(line):
+        m = LINE.match(line)
+        if m is None:
+            return None
+        d = m.groupdict()
+        d["code"] = int(d["code"])
+        d["setup_ms"] = int(d["setup_ms"])
+        return d
+
+    def avg_setup(lines):
+        """{sbc: average setup_ms, rounded to 1 decimal}"""
+        return {}
+
+    print(avg_setup(read_log()))
+  solution: |
+    import re
+    from voicelab import read_log
+
+    LINE = re.compile(
+        r"^(?P<ts>\S+) (?P<level>\w+)\s+(?P<sbc>\S+) "
+        r"INVITE call-id=(?P<call_id>\S+) "
+        r"from=(?P<caller>\S+) to=(?P<callee>\S+) "
+        r"-> (?P<code>\d{3}) (?P<reason>.+?) "
+        r"setup_ms=(?P<setup_ms>\d+)$"
+    )
+
+    def parse_line(line):
+        m = LINE.match(line)
+        if m is None:
+            return None
+        d = m.groupdict()
+        d["code"] = int(d["code"])
+        d["setup_ms"] = int(d["setup_ms"])
+        return d
+
+    def avg_setup(lines):
+        times = {}
+        for line in lines:
+            entry = parse_line(line)
+            if entry is None:
+                continue
+            ms = times.setdefault(entry["sbc"], [])
+            ms.append(entry["setup_ms"])
+        return {sbc: round(sum(ms) / len(ms), 1)
+                for sbc, ms in times.items()}
+
+    print(avg_setup(read_log()))
+  tests: |
+    avg = avg_setup(read_log())
+    check(lambda: avg == {"sbc-biz-01": 364.3, "sbc-ic-02": 1786.2, "sbc-ic-01": 471.2}, "averages per SBC, rounded to 1 decimal")
+    check(lambda: avg_setup([]) == {}, "no lines gives {}")
+    check(lambda: avg_setup(["2026-10-21T09:06:36.500Z INFO  sbc-ic-01 OPTIONS keepalive ok"]) == {}, "lines that don't parse are skipped")
+  hint: 'Use parse_line on every line and skip None. Collect setup_ms per SBC with setdefault(sbc, []).append(ms), then build {sbc: round(sum / len, 1)}.'
+  explain: sbc-ic-02 averages 1786 ms because two calls took over 3 seconds (a 503 and a 500). An average hides that; the next step shows the slowest calls themselves.
+- id: sbc-3-slowest-table
+  level: 3
+  prompt: Find the 3 slowest calls and print them as an aligned table.
+  starter: |
+    import re
+    from voicelab import read_log
+
+    LINE = re.compile(
+        r"^(?P<ts>\S+) (?P<level>\w+)\s+(?P<sbc>\S+) "
+        r"INVITE call-id=(?P<call_id>\S+) "
+        r"from=(?P<caller>\S+) to=(?P<callee>\S+) "
+        r"-> (?P<code>\d{3}) (?P<reason>.+?) "
+        r"setup_ms=(?P<setup_ms>\d+)$"
+    )
+
+    def parse_line(line):
+        m = LINE.match(line)
+        if m is None:
+            return None
+        d = m.groupdict()
+        d["code"] = int(d["code"])
+        d["setup_ms"] = int(d["setup_ms"])
+        return d
+
+    def avg_setup(lines):
+        times = {}
+        for line in lines:
+            entry = parse_line(line)
+            if entry is None:
+                continue
+            ms = times.setdefault(entry["sbc"], [])
+            ms.append(entry["setup_ms"])
+        return {sbc: round(sum(ms) / len(ms), 1)
+                for sbc, ms in times.items()}
+
+    def slowest(lines, n=3):
+        """The n slowest entries, slowest first."""
+        return []
+
+
+    def table(entries):
+        """A header row, then one aligned row per entry."""
+        return []
+
+    for row in table(slowest(read_log())):
+        print(row)
+  solution: |
+    import re
+    from voicelab import read_log
+
+    LINE = re.compile(
+        r"^(?P<ts>\S+) (?P<level>\w+)\s+(?P<sbc>\S+) "
+        r"INVITE call-id=(?P<call_id>\S+) "
+        r"from=(?P<caller>\S+) to=(?P<callee>\S+) "
+        r"-> (?P<code>\d{3}) (?P<reason>.+?) "
+        r"setup_ms=(?P<setup_ms>\d+)$"
+    )
+
+    def parse_line(line):
+        m = LINE.match(line)
+        if m is None:
+            return None
+        d = m.groupdict()
+        d["code"] = int(d["code"])
+        d["setup_ms"] = int(d["setup_ms"])
+        return d
+
+    def avg_setup(lines):
+        times = {}
+        for line in lines:
+            entry = parse_line(line)
+            if entry is None:
+                continue
+            ms = times.setdefault(entry["sbc"], [])
+            ms.append(entry["setup_ms"])
+        return {sbc: round(sum(ms) / len(ms), 1)
+                for sbc, ms in times.items()}
+
+    def slowest(lines, n=3):
+        entries = [e for e in map(parse_line, lines) if e]
+        entries.sort(key=lambda e: e["setup_ms"], reverse=True)
+        return entries[:n]
+
+
+    def table(entries):
+        rows = [f"{'call':<10}{'sbc':<12}{'code':>4}{'ms':>7}"]
+        for e in entries:
+            rows.append(f"{e['call_id']:<10}{e['sbc']:<12}"
+                        f"{e['code']:>4}{e['setup_ms']:>7}")
+        return rows
+
+    for row in table(slowest(read_log())):
+        print(row)
+  tests: |
+    top = slowest(read_log())
+    check(lambda: [e["call_id"] for e in top] == ["c1004@ic", "c1013@ic", "c1014@ic"], "the 3 slowest are c1004, c1013 and c1014")
+    check(lambda: len(slowest(read_log(), 5)) == 5, "n=5 gives 5 entries")
+    rows = table(top)
+    check(lambda: rows[0] == "call      sbc         code     ms", "the header row: call, sbc, code, ms")
+    check(lambda: rows[1] == "c1004@ic  sbc-ic-02    503   3087", "rows use the same widths as the header")
+  hint: 'Sort the parsed entries with key=lambda e: e["setup_ms"], reverse=True, and slice [:n]. In table, use the widths <10, <12, >4, >7 for both the header and the rows.'
+  explain: 'The two slowest calls both failed (503, 500) on sbc-ic-02: slow setup and errors often go together. That''s a lead to check on the SBC.'

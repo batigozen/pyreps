@@ -1,0 +1,144 @@
+# Mini project. Each step is a write card whose starter is the previous step's
+# code plus the new TODO, so every step runs and validates on its own.
+id: subnet-planner
+order: 5
+title: Subnet planner
+summary: Describe a CIDR range, split it into smaller subnets, and find which one holds an IP.
+files: {}
+steps:
+- id: subnet-1-describe
+  level: 2
+  prompt: Return the network, the first and last usable host, and the number of usable hosts.
+  starter: |
+    import ipaddress
+
+    def describe(cidr):
+        """network, first and last host, usable count"""
+        return {}
+
+    print(describe("10.244.2.0/24"))
+  solution: |
+    import ipaddress
+
+    def describe(cidr):
+        net = ipaddress.ip_network(cidr)
+        hosts = list(net.hosts())
+        return {"network": str(net),
+                "first": str(hosts[0]),
+                "last": str(hosts[-1]),
+                "usable": len(hosts)}
+
+    print(describe("10.244.2.0/24"))
+  tests: |
+    check(lambda: describe("10.244.2.0/24") == {"network": "10.244.2.0/24", "first": "10.244.2.1", "last": "10.244.2.254", "usable": 254}, "a /24: .1 to .254, 254 usable")
+    check(lambda: describe("192.168.10.0/28")["usable"] == 14, "a /28 has 14 usable hosts")
+    check(lambda: describe("10.0.0.0/30")["last"] == "10.0.0.2", "a /30: the last usable host is .2")
+    try:
+        describe("10.244.2.5/24")
+        raised = False
+    except ValueError:
+        raised = True
+    check(lambda: raised, "10.244.2.5/24 has host bits set: ValueError")
+  hint: net = ipaddress.ip_network(cidr); hosts = list(net.hosts()). The first is hosts[0], the last hosts[-1]. Use str() for the addresses.
+  explain: ip_network refuses "10.244.2.5/24" because .5 isn't a network address. That strictness catches typos in firewall and SBC configs.
+- id: subnet-2-split
+  level: 2
+  prompt: Split a network into smaller subnets with the new prefix length.
+  starter: |
+    import ipaddress
+
+    def describe(cidr):
+        net = ipaddress.ip_network(cidr)
+        hosts = list(net.hosts())
+        return {"network": str(net),
+                "first": str(hosts[0]),
+                "last": str(hosts[-1]),
+                "usable": len(hosts)}
+
+    def split(cidr, new_prefix):
+        """The smaller networks, as strings, in order."""
+        return []
+
+    print(split("10.244.0.0/22", 24))
+  solution: |
+    import ipaddress
+
+    def describe(cidr):
+        net = ipaddress.ip_network(cidr)
+        hosts = list(net.hosts())
+        return {"network": str(net),
+                "first": str(hosts[0]),
+                "last": str(hosts[-1]),
+                "usable": len(hosts)}
+
+    def split(cidr, new_prefix):
+        net = ipaddress.ip_network(cidr)
+        parts = net.subnets(new_prefix=new_prefix)
+        return [str(n) for n in parts]
+
+    print(split("10.244.0.0/22", 24))
+  tests: |
+    check(lambda: split("10.244.0.0/22", 24) == ["10.244.0.0/24", "10.244.1.0/24", "10.244.2.0/24", "10.244.3.0/24"], "a /22 holds four /24s")
+    check(lambda: split("10.0.0.0/24", 26)[-1] == "10.0.0.192/26", "the last /26 of a /24 starts at .192")
+    check(lambda: split("10.0.0.0/24", 24) == ["10.0.0.0/24"], "the same prefix gives the network itself")
+  hint: ipaddress.ip_network(cidr).subnets(new_prefix=new_prefix) yields the subnets; turn each into a str.
+  explain: 'Every extra prefix bit halves the size: /22 to /24 is 2 bits, so 4 subnets. Kubernetes gives each node a /24 out of the pod range like this.'
+- id: subnet-3-locate
+  level: 2
+  prompt: Return the subnet that holds the IP, or None.
+  starter: |
+    import ipaddress
+
+    def describe(cidr):
+        net = ipaddress.ip_network(cidr)
+        hosts = list(net.hosts())
+        return {"network": str(net),
+                "first": str(hosts[0]),
+                "last": str(hosts[-1]),
+                "usable": len(hosts)}
+
+    def split(cidr, new_prefix):
+        net = ipaddress.ip_network(cidr)
+        parts = net.subnets(new_prefix=new_prefix)
+        return [str(n) for n in parts]
+
+    def locate(ip, subnets):
+        """The subnet (str) that holds ip, or None."""
+        return None
+
+    nodes = split("10.244.0.0/22", 24)
+    for ip in ["10.244.2.17", "10.250.0.1"]:
+        print(ip, "->", locate(ip, nodes))
+  solution: |
+    import ipaddress
+
+    def describe(cidr):
+        net = ipaddress.ip_network(cidr)
+        hosts = list(net.hosts())
+        return {"network": str(net),
+                "first": str(hosts[0]),
+                "last": str(hosts[-1]),
+                "usable": len(hosts)}
+
+    def split(cidr, new_prefix):
+        net = ipaddress.ip_network(cidr)
+        parts = net.subnets(new_prefix=new_prefix)
+        return [str(n) for n in parts]
+
+    def locate(ip, subnets):
+        addr = ipaddress.ip_address(ip)
+        for subnet in subnets:
+            if addr in ipaddress.ip_network(subnet):
+                return subnet
+        return None
+
+    nodes = split("10.244.0.0/22", 24)
+    for ip in ["10.244.2.17", "10.250.0.1"]:
+        print(ip, "->", locate(ip, nodes))
+  tests: |
+    nodes = split("10.244.0.0/22", 24)
+    check(lambda: locate("10.244.2.17", nodes) == "10.244.2.0/24", "10.244.2.17 is on the node with 10.244.2.0/24")
+    check(lambda: locate("10.250.0.1", nodes) is None, "an IP outside every subnet gives None")
+    check(lambda: locate("10.244.3.255", nodes) == "10.244.3.0/24", "the broadcast address still belongs to its subnet")
+  hint: addr = ipaddress.ip_address(ip). Loop over the subnets and return the first one where addr in ipaddress.ip_network(subnet).
+  explain: 'This answers "which node or VLAN is this IP on?" when you read a log. Everything runs offline: it is pure maths on addresses.'

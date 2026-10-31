@@ -1,0 +1,308 @@
+# Mini project. Each step is a write card whose starter is the previous step's
+# code plus the new TODO, so every step runs and validates on its own.
+id: kpi-report
+order: 2
+title: Trunk KPI report
+summary: Count calls per trunk in a class with properties, print a KPI table, then write it as JSON.
+files: {}
+steps:
+- id: kpi-1-trunk-stats
+  level: 2
+  prompt: Finish TrunkStats (calls, answered, talk_s, and the properties asr and acd) and build_stats.
+  starter: |
+    from voicelab import load_cdrs
+
+    class TrunkStats:
+        def __init__(self, name):
+            self.name = name
+
+        def add(self, row):
+            pass
+
+
+    def build_stats(rows):
+        """{trunk name: TrunkStats}"""
+        return {}
+
+    stats = build_stats(load_cdrs())
+    print(len(stats), "trunks")
+  solution: |
+    from voicelab import load_cdrs
+
+    class TrunkStats:
+        def __init__(self, name):
+            self.name = name
+            self.calls = 0
+            self.answered = 0
+            self.talk_s = 0
+
+        def add(self, row):
+            self.calls += 1
+            if row["sip_code"] == "200":
+                self.answered += 1
+                self.talk_s += int(row["duration_s"])
+
+        @property
+        def asr(self):
+            if not self.calls:
+                return 0.0
+            return self.answered / self.calls
+
+        @property
+        def acd(self):
+            """Average talk time of answered calls (s)."""
+            if not self.answered:
+                return 0.0
+            return self.talk_s / self.answered
+
+
+    def build_stats(rows):
+        stats = {}
+        for row in rows:
+            name = row["trunk"]
+            if name not in stats:
+                stats[name] = TrunkStats(name)
+            stats[name].add(row)
+        return stats
+
+    stats = build_stats(load_cdrs())
+    print(len(stats), "trunks")
+  tests: |
+    s = build_stats(load_cdrs())
+    r = s["ic-rtd-02"]
+    check(lambda: (r.calls, r.answered, r.talk_s) == (15, 6, 936), "ic-rtd-02: 15 calls, 6 answered, 936 s of talk")
+    check(lambda: r.asr == 0.4 and r.acd == 156.0, "ic-rtd-02: asr 0.4 and acd 156.0")
+    e = TrunkStats("empty")
+    check(lambda: e.asr == 0.0 and e.acd == 0.0, "a trunk with no calls has asr and acd 0.0")
+    check(lambda: isinstance(TrunkStats.__dict__.get("acd"), property), "acd should be a @property")
+  hint: In __init__ set calls, answered and talk_s to 0. add() always counts the call; for sip_code "200" it also counts answered and adds int(duration_s). The properties divide, and return 0.0 when they would divide by 0.
+  explain: ASR (answer-seizure ratio) and ACD (average call duration) are the two basic trunk KPIs. Properties keep them correct after every add().
+- id: kpi-2-report-table
+  level: 2
+  prompt: 'Return the report lines: a header and one aligned row per trunk, sorted by name.'
+  starter: |
+    from voicelab import load_cdrs
+
+    class TrunkStats:
+        def __init__(self, name):
+            self.name = name
+            self.calls = 0
+            self.answered = 0
+            self.talk_s = 0
+
+        def add(self, row):
+            self.calls += 1
+            if row["sip_code"] == "200":
+                self.answered += 1
+                self.talk_s += int(row["duration_s"])
+
+        @property
+        def asr(self):
+            if not self.calls:
+                return 0.0
+            return self.answered / self.calls
+
+        @property
+        def acd(self):
+            """Average talk time of answered calls (s)."""
+            if not self.answered:
+                return 0.0
+            return self.talk_s / self.answered
+
+
+    def build_stats(rows):
+        stats = {}
+        for row in rows:
+            name = row["trunk"]
+            if name not in stats:
+                stats[name] = TrunkStats(name)
+            stats[name].add(row)
+        return stats
+
+    def report(stats):
+        """A header, then one row per trunk, sorted by name."""
+        return []
+
+    for line in report(build_stats(load_cdrs())):
+        print(line)
+  solution: |
+    from voicelab import load_cdrs
+
+    class TrunkStats:
+        def __init__(self, name):
+            self.name = name
+            self.calls = 0
+            self.answered = 0
+            self.talk_s = 0
+
+        def add(self, row):
+            self.calls += 1
+            if row["sip_code"] == "200":
+                self.answered += 1
+                self.talk_s += int(row["duration_s"])
+
+        @property
+        def asr(self):
+            if not self.calls:
+                return 0.0
+            return self.answered / self.calls
+
+        @property
+        def acd(self):
+            """Average talk time of answered calls (s)."""
+            if not self.answered:
+                return 0.0
+            return self.talk_s / self.answered
+
+
+    def build_stats(rows):
+        stats = {}
+        for row in rows:
+            name = row["trunk"]
+            if name not in stats:
+                stats[name] = TrunkStats(name)
+            stats[name].add(row)
+        return stats
+
+    def report(stats):
+        head = f"{'trunk':<14}{'calls':>6}{'asr':>8}{'acd':>8}"
+        lines = [head]
+        for name in sorted(stats):
+            s = stats[name]
+            lines.append(f"{name:<14}{s.calls:>6}"
+                         f"{s.asr:>8.1%}{s.acd:>8.1f}")
+        return lines
+
+    for line in report(build_stats(load_cdrs())):
+        print(line)
+  tests: |
+    lines = report(build_stats(load_cdrs()))
+    check(lambda: lines[0] == "trunk          calls     asr     acd", "the header: trunk, calls, asr, acd")
+    check(lambda: lines[1].startswith("biz-trunk-07") and len(lines) == 4, "one row per trunk, sorted by name")
+    check(lambda: lines[3] == "ic-rtd-02         15   40.0%   156.0", "ic-rtd-02 row: 15 calls, 40.0%, 156.0")
+  hint: 'Header: f"{''trunk'':<14}{''calls'':>6}{''asr'':>8}{''acd'':>8}". Rows use the same widths with format specs: :>8.1% for asr and :>8.1f for acd.'
+  explain: Same widths in header and rows keep the columns straight. A fixed sort order makes two days' reports easy to compare.
+- id: kpi-3-json
+  level: 2
+  prompt: Return the stats as JSON, indented, with sorted keys.
+  starter: |
+    import json
+    from voicelab import load_cdrs
+
+    class TrunkStats:
+        def __init__(self, name):
+            self.name = name
+            self.calls = 0
+            self.answered = 0
+            self.talk_s = 0
+
+        def add(self, row):
+            self.calls += 1
+            if row["sip_code"] == "200":
+                self.answered += 1
+                self.talk_s += int(row["duration_s"])
+
+        @property
+        def asr(self):
+            if not self.calls:
+                return 0.0
+            return self.answered / self.calls
+
+        @property
+        def acd(self):
+            """Average talk time of answered calls (s)."""
+            if not self.answered:
+                return 0.0
+            return self.talk_s / self.answered
+
+
+    def build_stats(rows):
+        stats = {}
+        for row in rows:
+            name = row["trunk"]
+            if name not in stats:
+                stats[name] = TrunkStats(name)
+            stats[name].add(row)
+        return stats
+
+    def report(stats):
+        head = f"{'trunk':<14}{'calls':>6}{'asr':>8}{'acd':>8}"
+        lines = [head]
+        for name in sorted(stats):
+            s = stats[name]
+            lines.append(f"{name:<14}{s.calls:>6}"
+                         f"{s.asr:>8.1%}{s.acd:>8.1f}")
+        return lines
+
+    def to_json(stats):
+        """{trunk: {"calls", "asr", "acd"}} as indented JSON"""
+        return "{}"
+
+    print(to_json(build_stats(load_cdrs())))
+  solution: |
+    import json
+    from voicelab import load_cdrs
+
+    class TrunkStats:
+        def __init__(self, name):
+            self.name = name
+            self.calls = 0
+            self.answered = 0
+            self.talk_s = 0
+
+        def add(self, row):
+            self.calls += 1
+            if row["sip_code"] == "200":
+                self.answered += 1
+                self.talk_s += int(row["duration_s"])
+
+        @property
+        def asr(self):
+            if not self.calls:
+                return 0.0
+            return self.answered / self.calls
+
+        @property
+        def acd(self):
+            """Average talk time of answered calls (s)."""
+            if not self.answered:
+                return 0.0
+            return self.talk_s / self.answered
+
+
+    def build_stats(rows):
+        stats = {}
+        for row in rows:
+            name = row["trunk"]
+            if name not in stats:
+                stats[name] = TrunkStats(name)
+            stats[name].add(row)
+        return stats
+
+    def report(stats):
+        head = f"{'trunk':<14}{'calls':>6}{'asr':>8}{'acd':>8}"
+        lines = [head]
+        for name in sorted(stats):
+            s = stats[name]
+            lines.append(f"{name:<14}{s.calls:>6}"
+                         f"{s.asr:>8.1%}{s.acd:>8.1f}")
+        return lines
+
+    def to_json(stats):
+        data = {name: {"calls": s.calls,
+                       "asr": round(s.asr, 3),
+                       "acd": round(s.acd, 1)}
+                for name, s in stats.items()}
+        return json.dumps(data, indent=2, sort_keys=True)
+
+    print(to_json(build_stats(load_cdrs())))
+  tests: |
+    import json as _json
+    out = to_json(build_stats(load_cdrs()))
+    data = _json.loads(out)
+    check(lambda: data["ic-ams-01"] == {"calls": 17, "asr": 0.588, "acd": 251.6}, "ic-ams-01: 17 calls, asr 0.588, acd 251.6")
+    check(lambda: list(data) == sorted(data), "trunks in sorted order (sort_keys=True)")
+    check(lambda: "\n  " in out, "indented with 2 spaces (indent=2)")
+    check(lambda: to_json({}) == "{}", "no trunks gives '{}'")
+  hint: 'Build {name: {"calls": ..., "asr": round(s.asr, 3), "acd": round(s.acd, 1)}} with a dict comprehension, then json.dumps(data, indent=2, sort_keys=True).'
+  explain: 'JSON is the format for other tools: a dashboard, a ticket, or the next script. Round in the data, not just in the display, so the file stays small and readable.'

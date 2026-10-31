@@ -1,0 +1,295 @@
+# Mini project. Each step is a write card whose starter is the previous step's
+# code plus the new TODO, so every step runs and validates on its own.
+id: voicekit-cli
+order: 4
+title: voicekit command line tool
+summary: One script with report and check subcommands that returns proper exit codes.
+files: {}
+steps:
+- id: voicekit-1-parser
+  level: 2
+  prompt: 'Build the parser: a report subcommand with --format (table or json), and a check subcommand with --max-restarts (int, default 3).'
+  starter: |
+    import argparse
+    import json
+    import sys
+    from collections import Counter
+    from voicelab import fake_kubectl, load_cdrs
+
+    def build_parser():
+        parser = argparse.ArgumentParser(prog="voicekit")
+        return parser
+
+    print(build_parser().prog)
+  solution: |
+    import argparse
+    import json
+    import sys
+    from collections import Counter
+    from voicelab import fake_kubectl, load_cdrs
+
+    def build_parser():
+        parser = argparse.ArgumentParser(prog="voicekit")
+        sub = parser.add_subparsers(dest="command",
+                                    required=True)
+        report = sub.add_parser("report", help="ASR per trunk")
+        report.add_argument("--format", default="table",
+                            choices=["table", "json"])
+        check = sub.add_parser("check", help="pod health")
+        check.add_argument("--max-restarts", type=int,
+                           default=3)
+        return parser
+
+    print(build_parser().parse_args(["check"]))
+  tests: |
+    p = build_parser()
+    check(lambda: p.parse_args(["report"]).format == "table", "report --format defaults to table")
+    check(lambda: p.parse_args(["report", "--format", "json"]).format == "json", "report --format json works")
+    check(lambda: p.parse_args(["check", "--max-restarts", "5"]).max_restarts == 5, "check --max-restarts 5 gives the int 5")
+    try:
+        p.parse_args([])
+        code = None
+    except SystemExit as e:
+        code = e.code
+    check(lambda: code == 2, "no subcommand is an error (exit code 2)")
+  hint: sub = parser.add_subparsers(dest="command", required=True). Then report = sub.add_parser("report") with add_argument("--format", choices=[...], default="table"), and the same for check.
+  explain: Subcommands keep one tool for related jobs, like git or kubectl. Each gets only the options it needs.
+- id: voicekit-2-report
+  level: 2
+  prompt: 'Write cmd_report: print ASR per trunk as an aligned table (or JSON with --format json) and return 0.'
+  starter: |
+    import argparse
+    import json
+    import sys
+    from collections import Counter
+    from voicelab import fake_kubectl, load_cdrs
+
+    def build_parser():
+        parser = argparse.ArgumentParser(prog="voicekit")
+        sub = parser.add_subparsers(dest="command",
+                                    required=True)
+        report = sub.add_parser("report", help="ASR per trunk")
+        report.add_argument("--format", default="table",
+                            choices=["table", "json"])
+        check = sub.add_parser("check", help="pod health")
+        check.add_argument("--max-restarts", type=int,
+                           default=3)
+        return parser
+
+    def asr_per_trunk(rows):
+        calls, ok = Counter(), Counter()
+        for row in rows:
+            calls[row["trunk"]] += 1
+            ok[row["trunk"]] += row["sip_code"] == "200"
+        return {t: round(ok[t] / n, 3)
+                for t, n in calls.items()}
+
+    def cmd_report(args):
+        """Print ASR per trunk (table or JSON). Return 0."""
+        return 0
+
+    cmd_report(build_parser().parse_args(["report"]))
+  solution: |
+    import argparse
+    import json
+    import sys
+    from collections import Counter
+    from voicelab import fake_kubectl, load_cdrs
+
+    def build_parser():
+        parser = argparse.ArgumentParser(prog="voicekit")
+        sub = parser.add_subparsers(dest="command",
+                                    required=True)
+        report = sub.add_parser("report", help="ASR per trunk")
+        report.add_argument("--format", default="table",
+                            choices=["table", "json"])
+        check = sub.add_parser("check", help="pod health")
+        check.add_argument("--max-restarts", type=int,
+                           default=3)
+        return parser
+
+    def asr_per_trunk(rows):
+        calls, ok = Counter(), Counter()
+        for row in rows:
+            calls[row["trunk"]] += 1
+            ok[row["trunk"]] += row["sip_code"] == "200"
+        return {t: round(ok[t] / n, 3)
+                for t, n in calls.items()}
+
+    def cmd_report(args):
+        asr = asr_per_trunk(load_cdrs())
+        if args.format == "json":
+            print(json.dumps(asr, sort_keys=True))
+        else:
+            for trunk in sorted(asr):
+                print(f"{trunk:<14}{asr[trunk]:>7.1%}")
+        return 0
+
+    cmd_report(build_parser().parse_args(["report"]))
+  tests: |
+    import io, contextlib
+    def run(argv):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = cmd_report(build_parser().parse_args(argv))
+        return code, out.getvalue().splitlines()
+    code, lines = run(["report"])
+    check(lambda: code == 0, "cmd_report returns 0")
+    check(lambda: lines == ["biz-trunk-07    81.2%", "ic-ams-01       58.8%", "ic-rtd-02       40.0%"], "the table: one aligned line per trunk, sorted")
+    import json as _json
+    check(lambda: _json.loads(run(["report", "--format", "json"])[1][0]) == {"biz-trunk-07": 0.812, "ic-ams-01": 0.588, "ic-rtd-02": 0.4}, "--format json prints the ASRs as JSON")
+  hint: asr = asr_per_trunk(load_cdrs()). If args.format == "json", print json.dumps(asr, sort_keys=True). Otherwise loop over sorted(asr) and print f"{trunk:<14}{asr[trunk]:>7.1%}".
+  explain: Each subcommand is a function that takes args and returns an exit code. That makes every command easy to test on its own.
+- id: voicekit-3-check
+  level: 3
+  prompt: Write cmd_check (print problems, return 2, 1 or 0) and main(argv), which runs the chosen command.
+  starter: |
+    import argparse
+    import json
+    import sys
+    from collections import Counter
+    from voicelab import fake_kubectl, load_cdrs
+
+    def build_parser():
+        parser = argparse.ArgumentParser(prog="voicekit")
+        sub = parser.add_subparsers(dest="command",
+                                    required=True)
+        report = sub.add_parser("report", help="ASR per trunk")
+        report.add_argument("--format", default="table",
+                            choices=["table", "json"])
+        check = sub.add_parser("check", help="pod health")
+        check.add_argument("--max-restarts", type=int,
+                           default=3)
+        return parser
+
+    def asr_per_trunk(rows):
+        calls, ok = Counter(), Counter()
+        for row in rows:
+            calls[row["trunk"]] += 1
+            ok[row["trunk"]] += row["sip_code"] == "200"
+        return {t: round(ok[t] / n, 3)
+                for t, n in calls.items()}
+
+    def cmd_report(args):
+        asr = asr_per_trunk(load_cdrs())
+        if args.format == "json":
+            print(json.dumps(asr, sort_keys=True))
+        else:
+            for trunk in sorted(asr):
+                print(f"{trunk:<14}{asr[trunk]:>7.1%}")
+        return 0
+
+    def pod_problems(max_restarts):
+        """Yield (pod name, problem) for every problem found."""
+        for pod in json.loads(fake_kubectl())["items"]:
+            name = pod["metadata"]["name"]
+            status = pod["status"]
+            statuses = status.get("containerStatuses", [])
+            ready = [c["ready"] for c in statuses]
+            if status["phase"] != "Running":
+                yield name, "not running"
+            if not (ready and all(ready)):
+                yield name, "not ready"
+            restarts = sum(c["restartCount"] for c in statuses)
+            if restarts >= max_restarts:
+                yield name, f"restarts {restarts}"
+
+    def cmd_check(args):
+        """Print each problem. Return 2, 1 or 0 like Nagios."""
+        return 0
+
+
+    def main(argv=None):
+        """Parse argv and run the chosen command."""
+        return 0
+
+    if __name__ == "__main__":
+        # In the app there are no arguments, so run "check".
+        argv = sys.argv[1:] or ["check"]
+        print("exit code", main(argv))
+  solution: |
+    import argparse
+    import json
+    import sys
+    from collections import Counter
+    from voicelab import fake_kubectl, load_cdrs
+
+    def build_parser():
+        parser = argparse.ArgumentParser(prog="voicekit")
+        sub = parser.add_subparsers(dest="command",
+                                    required=True)
+        report = sub.add_parser("report", help="ASR per trunk")
+        report.add_argument("--format", default="table",
+                            choices=["table", "json"])
+        check = sub.add_parser("check", help="pod health")
+        check.add_argument("--max-restarts", type=int,
+                           default=3)
+        return parser
+
+    def asr_per_trunk(rows):
+        calls, ok = Counter(), Counter()
+        for row in rows:
+            calls[row["trunk"]] += 1
+            ok[row["trunk"]] += row["sip_code"] == "200"
+        return {t: round(ok[t] / n, 3)
+                for t, n in calls.items()}
+
+    def cmd_report(args):
+        asr = asr_per_trunk(load_cdrs())
+        if args.format == "json":
+            print(json.dumps(asr, sort_keys=True))
+        else:
+            for trunk in sorted(asr):
+                print(f"{trunk:<14}{asr[trunk]:>7.1%}")
+        return 0
+
+    def pod_problems(max_restarts):
+        """Yield (pod name, problem) for every problem found."""
+        for pod in json.loads(fake_kubectl())["items"]:
+            name = pod["metadata"]["name"]
+            status = pod["status"]
+            statuses = status.get("containerStatuses", [])
+            ready = [c["ready"] for c in statuses]
+            if status["phase"] != "Running":
+                yield name, "not running"
+            if not (ready and all(ready)):
+                yield name, "not ready"
+            restarts = sum(c["restartCount"] for c in statuses)
+            if restarts >= max_restarts:
+                yield name, f"restarts {restarts}"
+
+    def cmd_check(args):
+        found = list(pod_problems(args.max_restarts))
+        for name, problem in found:
+            print(f"{name}: {problem}")
+        down = {"not running", "not ready"}
+        if any(problem in down for _, problem in found):
+            return 2
+        return 1 if found else 0
+
+
+    COMMANDS = {"report": cmd_report, "check": cmd_check}
+
+
+    def main(argv=None):
+        args = build_parser().parse_args(argv)
+        return COMMANDS[args.command](args)
+
+    if __name__ == "__main__":
+        # In the app there are no arguments, so run "check".
+        argv = sys.argv[1:] or ["check"]
+        print("exit code", main(argv))
+  tests: |
+    import io, contextlib
+    def run(argv):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = main(argv)
+        return code, out.getvalue()
+    code, text = run(["check"])
+    check(lambda: code == 2, "main(['check']) returns 2: two pods are down or not ready")
+    check(lambda: "cdr-exporter-g62q9xtk4r-bjmw2: not ready" in text, "the problems are printed, like 'cdr-exporter-...: not ready'")
+    check(lambda: run(["report"])[0] == 0, "main(['report']) returns 0")
+    check(lambda: "restarts 1" in run(["check", "--max-restarts", "1"])[1], "--max-restarts 1 also reports call-api's restart")
+  hint: 'cmd_check: found = list(pod_problems(args.max_restarts)), print each, return 2 if a problem is "not running" or "not ready", else 1 if found, else 0. main: args = build_parser().parse_args(argv), then call the function for args.command from a dict.'
+  explain: 'A dict from command name to function is a dispatch table: main stays two lines however many commands you add. In a-Shell: python3 voicekit-cli.py report --format json.'
