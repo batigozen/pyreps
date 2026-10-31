@@ -116,3 +116,309 @@
                        output="json"))
   explain: "[*a, *b] builds one list from two; **flags collected the keyword arguments into a dict."
   tags: [kwargs, star]
+
+- id: unpack-predict-swap
+  type: predict
+  topic: unpack
+  level: 1
+  prompt: What does this print?
+  code: |
+    primary, backup = "sbc-ic-01", "sbc-ic-02"
+    primary, backup = backup, primary
+    print(primary, backup)
+  answer: "sbc-ic-02 sbc-ic-01"
+  explain: >-
+    The right side is built first as a tuple ("sbc-ic-02", "sbc-ic-01"), then unpacked
+    into the two names. So a swap needs no temporary variable, unlike in Java.
+  tags: [swap, tuple]
+
+- id: unpack-predict-star-call
+  type: predict
+  topic: unpack
+  level: 1
+  prompt: What does this print?
+  code: |
+    def route(trunk, code, sbc):
+        return f"{trunk}/{code} via {sbc}"
+
+    args = ["ic-ams-01", 486, "sbc-ic-01"]
+    print(route(*args))
+  answer: "ic-ams-01/486 via sbc-ic-01"
+  options:
+    - "ic-ams-01/486 via sbc-ic-01"
+    - "['ic-ams-01', 486, 'sbc-ic-01']/None via None"
+    - "ic-ams-01/486 via ['sbc-ic-01']"
+    - "['ic-ams-01', 486, 'sbc-ic-01']"
+  explain: >-
+    *args spreads the list into three positional arguments, in order:
+    route("ic-ams-01", 486, "sbc-ic-01"). Without the star the whole list would be
+    one argument, and Python would complain about the two missing ones.
+  tags: [star, call]
+
+- id: unpack-predict-dict-union
+  type: predict
+  topic: unpack
+  level: 2
+  prompt: What does this print?
+  code: |
+    defaults = {"timeout": 5, "retries": 3}
+    env = {"retries": 1}
+    cfg = defaults | env
+    defaults |= {"timeout": 9}
+    print(cfg, defaults["timeout"])
+  answer: "{'timeout': 5, 'retries': 1} 9"
+  options:
+    - "{'timeout': 5, 'retries': 1} 9"
+    - "{'timeout': 9, 'retries': 1} 9"
+    - "{'timeout': 5, 'retries': 3} 9"
+    - "{'timeout': 5, 'retries': 1} 5"
+  explain: >-
+    a | b builds a new dict where b's keys win, like {**a, **b}. a |= b changes a in
+    place. cfg was built before the change, so it still has timeout 5.
+  tags: [merge, union]
+
+- id: unpack-predict-nested
+  type: predict
+  topic: unpack
+  level: 3
+  prompt: What does this print?
+  code: |
+    calls = [("c1000", ("biz-trunk-07", 200)),
+             ("c1001", ("ic-rtd-02", 480))]
+    for call_id, (trunk, code) in calls:
+        if code != 200:
+            print(call_id, trunk)
+  answer: "c1001 ic-rtd-02"
+  explain: >-
+    The pattern `call_id, (trunk, code)` has the same shape as each item, so Python
+    unpacks the inner tuple too. Only c1001 has a code other than 200.
+  tags: [nested, loop]
+
+- id: unpack-mcq-keyword-only
+  type: mcq
+  topic: unpack
+  level: 2
+  prompt: Which call works?
+  code: |
+    def connect(host, *, timeout=5):
+        return f"{host} timeout={timeout}"
+  options:
+    - connect("cdr-db", timeout=3)
+    - connect("cdr-db", 3)
+    - connect(timeout=3)
+    - connect("cdr-db", 3, 5)
+  correct: 0
+  explain: >-
+    A bare * in the parameters means every parameter after it is keyword-only. So
+    timeout must be written as timeout=3. connect("cdr-db", 3) raises TypeError.
+    This stops callers from mixing up the order of options.
+  tags: [keyword-only]
+
+- id: unpack-mcq-too-many-values
+  type: mcq
+  topic: unpack
+  level: 2
+  prompt: What happens here?
+  code: |
+    record = ("ic-ams-01", "200", 445)
+    trunk, code = record
+  options:
+    - "ValueError: too many values to unpack"
+    - "trunk is ic-ams-01 and code is 200; 445 is ignored"
+    - "code becomes (\"200\", 445)"
+    - "IndexError"
+  correct: 0
+  explain: >-
+    The number of names must match the number of values. To keep the rest, use a star:
+    trunk, *rest = record. To drop it, use trunk, code, _ = record.
+  tags: [raises, star]
+
+- id: unpack-fill-star-rest
+  type: fill
+  topic: unpack
+  level: 1
+  prompt: Take the first SIP code, and keep the others in a list.
+  code: |
+    codes = [503, 200, 486, 200]
+    first, ____ = codes
+    print(first, rest)
+  blanks:
+    - answer: "*rest"
+      options: ["*rest", "rest", "**rest", "rest*"]
+  expected_output: "503 [200, 486, 200]"
+  explain: >-
+    *rest collects every value that the other names don't take, always as a list.
+    Without the star, Python raises ValueError: too many values to unpack.
+  tags: [star]
+
+- id: unpack-fill-dict-union
+  type: fill
+  topic: unpack
+  level: 2
+  prompt: Merge the two dicts so the env value wins.
+  code: |
+    defaults = {"threshold": 0.65, "timeout": 5}
+    env = {"threshold": 0.6}
+    cfg = defaults ____ env
+    print(cfg)
+  blanks:
+    - answer: "|"
+      options: ["|", "+", "&", "or"]
+  expected_output: "{'threshold': 0.6, 'timeout': 5}"
+  explain: >-
+    | merges two dicts into a new one (Python 3.9+), and the right side wins.
+    + is not defined for dicts. `defaults or env` just returns defaults, because a
+    non-empty dict is true.
+  tags: [merge, union]
+
+- id: unpack-spotbug-merge-order
+  type: spot_bug
+  topic: unpack
+  level: 2
+  prompt: The env value should win over the default. Tap the line with the bug.
+  code: |
+    defaults = {"threshold": 0.65, "timeout": 5}
+    env = {"threshold": 0.6}
+    cfg = {**env, **defaults}
+    print(cfg["threshold"])
+  bug_line: 3
+  fixed_code: |
+    defaults = {"threshold": 0.65, "timeout": 5}
+    env = {"threshold": 0.6}
+    cfg = {**defaults, **env}
+    print(cfg["threshold"])
+  expected_output: "0.6"
+  explain: >-
+    When two dicts are spread into one, the later one wins on the same key. Put the
+    defaults first and the overrides last.
+  tags: [double-star, merge]
+
+- id: unpack-spotbug-missing-star
+  type: spot_bug
+  topic: unpack
+  level: 3
+  prompt: This should add up the call durations. Tap the line with the bug.
+  code: |
+    def total(*durations):
+        return sum(durations)
+
+    durations = [140, 35, 410]
+    print(total(durations))
+  bug_line: 5
+  fixed_code: |
+    def total(*durations):
+        return sum(durations)
+
+    durations = [140, 35, 410]
+    print(total(*durations))
+  expected_output: "585"
+  explain: >-
+    total(durations) passes one argument, the list, so *durations becomes ([140, 35,
+    410],) and sum() can't add a list to 0. total(*durations) spreads the list into
+    three arguments.
+  tags: [star, args]
+
+- id: unpack-parsons-header-rows
+  type: parsons
+  topic: unpack
+  level: 2
+  prompt: Put the lines in order to turn the CSV text into dicts.
+  setup: |
+    text = "call_id,trunk,sip_code\nc1000,biz-trunk-07,200\nc1001,ic-rtd-02,480"
+  lines:
+    - "header, *rows = text.splitlines()"
+    - "names = header.split(\",\")"
+    - "for row in rows:"
+    - "    call = dict(zip(names, row.split(\",\")))"
+    - "    print(call[\"call_id\"], call[\"sip_code\"])"
+  distractors:
+    - "header, rows = text.splitlines()"
+  expected_output: |
+    c1000 200
+    c1001 480
+  explain: >-
+    `header, *rows` takes the first line and keeps the rest in a list. Without the
+    star there are three lines for two names, so Python raises ValueError.
+    csv.DictReader does this for you on real files.
+  tags: [star, csv]
+
+- id: unpack-parsons-kwargs-defaults
+  type: parsons
+  topic: unpack
+  level: 2
+  prompt: Put the lines in order so make_cfg(timeout=10) keeps retries and changes timeout.
+  lines:
+    - "def make_cfg(**overrides):"
+    - "    base = {\"timeout\": 5, \"retries\": 3}"
+    - "    return {**base, **overrides}"
+    - "cfg = make_cfg(timeout=10)"
+    - "print(cfg)"
+  distractors:
+    - "    return {**overrides, **base}"
+    - "def make_cfg(*overrides):"
+  expected_output: "{'timeout': 10, 'retries': 3}"
+  explain: >-
+    **overrides collects keyword arguments into a dict. Spreading base first and
+    overrides last lets the caller's values win. *overrides would collect positional
+    arguments into a tuple, and timeout=10 would raise TypeError.
+  tags: [kwargs, double-star]
+
+- id: unpack-parsons-worst-code
+  type: parsons
+  topic: unpack
+  level: 3
+  prompt: Put the lines in order so it prints 503, then None.
+  lines:
+    - "def worst(*codes):"
+    - "    errors = [c for c in codes if c >= 500]"
+    - "    return max(errors, default=None)"
+    - "print(worst(200, 503, 486, 500))"
+    - "print(worst(*[200, 486]))"
+  distractors:
+    - "def worst(codes):"
+    - "print(worst([200, 503, 486, 500]))"
+  expected_output: |
+    503
+    None
+  explain: >-
+    *codes collects any number of arguments into a tuple. A list must be spread with
+    * to match. max() of an empty list raises ValueError, so default=None returns
+    None when there are no 5xx codes.
+  tags: [args, star]
+
+- id: unpack-write-merge-layers
+  type: write
+  topic: unpack
+  level: 2
+  prompt: Merge any number of config dicts into one. Later dicts win.
+  starter: |
+    def merge(*layers):
+        """merge(defaults, from_file, from_env) -> one dict"""
+        return {}
+
+    defaults = {"timeout": 5, "threshold": 0.65}
+    from_env = {"threshold": 0.6}
+    print(merge(defaults, from_env))
+  tests: |
+    check(lambda: merge(defaults, from_env) == {"timeout": 5, "threshold": 0.6}, "threshold from env (0.6) should win")
+    check(lambda: merge({"a": 1}, {"a": 2}, {"a": 3}) == {"a": 3}, "the last dict should win")
+    check(lambda: merge() == {}, "no dicts should give {}")
+    merge(defaults, from_env)
+    check(lambda: defaults["threshold"] == 0.65, "defaults must not change")
+  hint: >-
+    Start with result = {}. For each layer in layers, build a new dict with
+    {**result, **layer}, or use result |= layer.
+  solution: |
+    def merge(*layers):
+        result = {}
+        for layer in layers:
+            result = {**result, **layer}
+        return result
+
+    defaults = {"timeout": 5, "threshold": 0.65}
+    from_env = {"threshold": 0.6}
+    print(merge(defaults, from_env))
+  explain: >-
+    *layers takes any number of dicts as a tuple. Building a new dict each time keeps
+    the inputs unchanged, which matters when the same defaults are used again.
+  tags: [args, merge, double-star]
