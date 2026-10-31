@@ -1,0 +1,371 @@
+# WEB deck: URLs, query strings, HTTP status classes, requests patterns, auth headers,
+# pagination (about 15 cards). Offline only: responses are fakes, the real call is in
+# the explain text.
+- id: web-predict-urlparse
+  type: predict
+  topic: web
+  level: 1
+  prompt: What does this print?
+  code: |
+    from urllib.parse import urlparse
+    u = urlparse("http://prometheus.monitoring:9090"
+                 "/api/v1/query?query=up&time=1761037200")
+    print(u.hostname, u.port, u.path)
+  answer: "prometheus.monitoring 9090 /api/v1/query"
+  options:
+    - "prometheus.monitoring 9090 /api/v1/query"
+    - "prometheus.monitoring:9090 None /api/v1/query"
+    - "http 9090 /api/v1/query?query=up"
+    - "prometheus.monitoring '9090' api/v1/query"
+  explain: >-
+    urlparse splits a URL into its parts: scheme, hostname, port (as an int), path and
+    query. Better than splitting on "/" and ":" yourself.
+  tags: [urllib, urlparse]
+
+- id: web-predict-parse-qs
+  type: predict
+  topic: web
+  level: 2
+  prompt: What does this print?
+  code: |
+    from urllib.parse import parse_qs
+    q = parse_qs("query=up&time=1761037200&query=down")
+    print(q)
+  answer: "{'query': ['up', 'down'], 'time': ['1761037200']}"
+  options:
+    - "{'query': ['up', 'down'], 'time': ['1761037200']}"
+    - "{'query': 'down', 'time': '1761037200'}"
+    - "{'query': 'up', 'time': 1761037200}"
+    - "{'query': ['up'], 'time': ['1761037200']}"
+  explain: >-
+    A query string may repeat a key, so parse_qs always gives a list per key, and the
+    values stay strings. Take q["time"][0] and convert it yourself.
+  tags: [urllib, parse_qs]
+
+- id: web-predict-urlencode
+  type: predict
+  topic: web
+  level: 2
+  prompt: What does this print?
+  code: |
+    from urllib.parse import urlencode
+    params = {"query": "rate(sip_5xx[5m])", "step": 60}
+    print(urlencode(params))
+  answer: "query=rate%28sip_5xx%5B5m%5D%29&step=60"
+  options:
+    - "query=rate%28sip_5xx%5B5m%5D%29&step=60"
+    - "query=rate(sip_5xx[5m])&step=60"
+    - "query=rate%28sip_5xx%5B5m%5D%29,step=60"
+    - "?query=rate(sip_5xx[5m])&step=60"
+  explain: >-
+    urlencode joins key=value pairs with & and escapes characters that have a meaning
+    in URLs, like brackets. requests does the same when you pass params={...}.
+  tags: [urllib, urlencode]
+
+- id: web-predict-status-class
+  type: predict
+  topic: web
+  level: 1
+  prompt: What does this print?
+  code: |
+    KIND = {2: "success", 4: "client error", 5: "server error"}
+    for code in (200, 404, 503):
+        print(code, KIND[code // 100])
+  answer: |-
+    200 success
+    404 client error
+    503 server error
+  explain: >-
+    The first digit is the class: 2xx worked, 4xx means your request was wrong (don't
+    just retry), 5xx means the server failed (retry later can help). SIP codes use the
+    same idea: 486 is a client error, 503 a server error.
+  tags: [http, status]
+
+- id: web-predict-pagination
+  type: predict
+  topic: web
+  level: 2
+  prompt: What does this print?
+  code: |
+    PAGES = {None: (["c1", "c2"], "p2"),
+             "p2": (["c3"], "p3"),
+             "p3": (["c4", "c5"], None)}
+    items, token, calls = [], None, 0
+    while True:
+        page, token = PAGES[token]
+        items += page
+        calls += 1
+        if token is None:
+            break
+    print(len(items), calls)
+  answer: "5 3"
+  explain: >-
+    APIs often return one page and a "next" token. Keep asking with the token until it
+    is None. The loop must run once more after the last token, so the check comes after
+    collecting the page.
+  tags: [pagination, json]
+
+- id: web-mcq-raise-for-status
+  type: mcq
+  topic: web
+  level: 2
+  prompt: What does r.raise_for_status() do after requests.get(...)?
+  options:
+    - It raises HTTPError when the status is 4xx or 5xx
+    - It retries the request until it works
+    - It returns the status code as text
+    - It checks that the reply is valid JSON
+  correct: 0
+  explain: >-
+    requests does not raise on 404 or 503 by itself; r.json() would then parse an
+    error page. raise_for_status() right after the call stops you at the real problem.
+  tags: [requests]
+
+- id: web-mcq-bearer
+  type: mcq
+  topic: web
+  level: 1
+  prompt: Which headers send an API token the usual way?
+  options:
+    - "{\"Authorization\": \"Bearer <token>\"}"
+    - "{\"Token\": \"<token>\"}"
+    - "{\"Authorization\": \"<token>\"}"
+    - "{\"Bearer\": \"<token>\"}"
+  correct: 0
+  explain: >-
+    The scheme comes first, then a space, then the credentials: "Bearer <token>" or
+    "Basic <base64 of user:password>". Headers are just a dict in requests. Never log
+    them.
+  tags: [http, auth, headers]
+
+- id: web-mcq-params
+  type: mcq
+  topic: web
+  level: 2
+  prompt: >-
+    In requests.get(url, params={"query": q}, timeout=5), what does params= do?
+  options:
+    - It builds the ?query=... part and escapes q correctly
+    - It sends q as JSON in the body
+    - It adds q as a header
+    - It only works for POST
+  correct: 0
+  explain: >-
+    params= is urlencode for you, so special characters in a PromQL query can't break
+    the URL. For a JSON body (POST), use json={...}.
+  tags: [requests, params]
+
+- id: web-fill-basic-auth
+  type: fill
+  topic: web
+  level: 2
+  prompt: Build a Basic auth header value.
+  code: |
+    import base64
+    pair = b"oss:voice123"
+    value = "Basic " + base64.b64encode(pair).____()
+    print({"Authorization": value})
+  blanks:
+    - answer: decode
+      options: [decode, encode, hex, strip]
+  expected_output: "{'Authorization': 'Basic b3NzOnZvaWNlMTIz'}"
+  explain: >-
+    b64encode returns bytes; .decode() turns them into a str that can be joined to
+    "Basic ". requests can build this for you with auth=("oss", "voice123").
+  tags: [auth, base64, headers]
+
+- id: web-fill-json
+  type: fill
+  topic: web
+  level: 2
+  prompt: Read the JSON body of the response.
+  code: |
+    import json
+    from voicelab import fake_prometheus
+
+    class FakeResponse:
+        status_code = 200
+
+        def json(self):
+            return json.loads(fake_prometheus("up"))
+
+    r = FakeResponse()
+    data = r.____()
+    print(data["status"], len(data["data"]["result"]))
+  blanks:
+    - answer: json
+      options: [json, text, body, data]
+  expected_output: "success 3"
+  explain: >-
+    r.json() parses the body into dicts and lists. r.text is the raw string. On a real
+    machine, r = requests.get(url, params=..., timeout=5) gives the same kind of
+    object.
+  tags: [requests, json]
+
+- id: web-spotbug-query-concat
+  type: spot_bug
+  topic: web
+  level: 2
+  prompt: The query must be escaped in the URL. Tap the line with the bug.
+  code: |
+    from urllib.parse import urlencode
+    base = "http://prom:9090/api/v1/query"
+    q = "sum(rate(sip_5xx_total[5m]))"
+    url = f"{base}?query={q}"
+    print(url)
+  bug_line: 4
+  fixed_code: |
+    from urllib.parse import urlencode
+    base = "http://prom:9090/api/v1/query"
+    q = "sum(rate(sip_5xx_total[5m]))"
+    url = f"{base}?{urlencode({'query': q})}"
+    print(url)
+  expected_output: "http://prom:9090/api/v1/query?query=sum%28rate%28sip_5xx_total%5B5m%5D%29%29"
+  explain: >-
+    Pasting raw text into a URL breaks as soon as it has a space, &, + or #. urlencode
+    (or params= in requests) escapes it. The same mistake is how injection bugs start.
+  tags: [urllib, urlencode]
+
+- id: web-spotbug-status-or
+  type: spot_bug
+  topic: web
+  level: 2
+  prompt: A 503 should be reported as failed. Tap the line with the bug.
+  code: |
+    status_code = 503
+    if status_code == 200 or 201:
+        print("ok")
+    else:
+        print("failed with", status_code)
+  bug_line: 2
+  fixed_code: |
+    status_code = 503
+    if status_code in (200, 201):
+        print("ok")
+    else:
+        print("failed with", status_code)
+  expected_output: "failed with 503"
+  explain: >-
+    `x == 200 or 201` means `(x == 200) or 201`, and 201 alone is always true. Use
+    `x in (200, 201)`, or `200 <= x < 300` for any success.
+  tags: [http, status, or]
+
+- id: web-parsons-session-get
+  type: parsons
+  topic: web
+  level: 2
+  prompt: Put the lines in order to query Prometheus and read the result.
+  setup: |
+    import json
+    from voicelab import fake_prometheus
+
+    class FakeResponse:
+        def __init__(self, text):
+            self.text = text
+            self.status_code = 200
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise RuntimeError(self.status_code)
+
+        def json(self):
+            return json.loads(self.text)
+
+    class FakeSession:
+        def get(self, url, params=None, timeout=None):
+            assert timeout, "always pass timeout="
+            return FakeResponse(fake_prometheus(params["query"]))
+
+    session = FakeSession()
+    url = "http://prometheus.monitoring:9090/api/v1/query"
+  lines:
+    - "r = session.get(url, params={\"query\": \"up\"}, timeout=5)"
+    - "r.raise_for_status()"
+    - "data = r.json()"
+    - "print(data[\"status\"], len(data[\"data\"][\"result\"]))"
+  distractors:
+    - "r = session.get(url, params={\"query\": \"up\"})"
+    - "data = r.json"
+  expected_output: "success 3"
+  explain: >-
+    The safe order: request with a timeout, check the status, then parse. FakeSession
+    stands in for requests.Session(), which reuses connections between calls.
+  tags: [requests, json, timeout]
+
+- id: web-write-query-url
+  type: write
+  topic: web
+  level: 2
+  prompt: Return base plus an escaped query string. No params means no "?".
+  starter: |
+    from urllib.parse import urlencode
+
+    def query_url(base, **params):
+        """query_url(base, query="up") -> base + "?query=up\""""
+        return base
+
+    BASE = "http://prom:9090/api/v1/query"
+    print(query_url(BASE, query="up"))
+  tests: |
+    base = "http://prom:9090/api/v1/query"
+    check(lambda: query_url(base, query="up") == base + "?query=up", "query='up' adds ?query=up")
+    check(lambda: query_url(base, query="rate(x[5m])", step=60) == base + "?query=rate%28x%5B5m%5D%29&step=60", "special characters are escaped, pairs joined with &")
+    check(lambda: query_url(base) == base, "no params gives the base unchanged")
+  hint: >-
+    **params is a dict. If it is empty, return base. Otherwise return
+    f"{base}?{urlencode(params)}".
+  solution: |
+    from urllib.parse import urlencode
+
+    def query_url(base, **params):
+        if not params:
+            return base
+        return f"{base}?{urlencode(params)}"
+
+    BASE = "http://prom:9090/api/v1/query"
+    print(query_url(BASE, query="up"))
+  explain: >-
+    **params turns keyword arguments into a dict, which is exactly what urlencode
+    takes. The unpack topic and the web topic meet here.
+  tags: [urllib, kwargs]
+
+- id: web-write-fetch-all
+  type: write
+  topic: web
+  level: 3
+  prompt: "get_page(token) returns {\"items\": [...], \"next\": token or None}. Collect the items of all pages, starting with token None."
+  starter: |
+    PAGES = {None: {"items": ["c1", "c2"], "next": "p2"},
+             "p2": {"items": ["c3"], "next": None}}
+
+    def fetch_all(get_page):
+        return get_page(None)["items"]
+
+    print(fetch_all(PAGES.get))
+  tests: |
+    check(lambda: fetch_all(PAGES.get) == ["c1", "c2", "c3"], "two pages give c1, c2, c3")
+    three = {None: {"items": [1], "next": "a"}, "a": {"items": [], "next": "b"}, "b": {"items": [2, 3], "next": None}}
+    check(lambda: fetch_all(three.get) == [1, 2, 3], "an empty page in the middle is fine")
+    one = {None: {"items": [], "next": None}}
+    check(lambda: fetch_all(one.get) == [], "one empty page gives []")
+  hint: >-
+    items = [], token = None. Loop: page = get_page(token), items.extend(page["items"]),
+    token = page["next"], and stop when token is None.
+  solution: |
+    PAGES = {None: {"items": ["c1", "c2"], "next": "p2"},
+             "p2": {"items": ["c3"], "next": None}}
+
+    def fetch_all(get_page):
+        items, token = [], None
+        while True:
+            page = get_page(token)
+            items.extend(page["items"])
+            token = page["next"]
+            if token is None:
+                return items
+
+    print(fetch_all(PAGES.get))
+  explain: >-
+    Passing get_page in keeps the loop testable. On a real machine it would wrap
+    requests.get(url, params={"page_token": token}, timeout=5).json().
+  tags: [pagination]
