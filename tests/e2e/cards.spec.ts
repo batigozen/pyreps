@@ -75,14 +75,14 @@ test("fill: wrong blank, then right", async ({ page }) => {
 
 test("spot the bug: tap a line, then see the fix", async ({ page }) => {
   await open(page, "dicts-spotbug-sort-by-value");
-  const line3 = radio(page, /^Line 3:/);
-  const box = await line3.boundingBox();
+  const line2 = radio(page, /^Line 2:/);
+  const box = await line2.boundingBox();
   expect(box?.height).toBeGreaterThanOrEqual(44);
 
-  await line3.tap();
+  await line2.tap();
   await check(page).tap();
   await expect(banner(page)).toHaveText("Not quite. Try once more.");
-  await radio(page, /^Line 2:/).tap();
+  await radio(page, /^Line 3:/).tap();
   await check(page).tap();
   await expect(banner(page)).toHaveText("Right on the second try.");
   const fix = page.getByRole("region", { name: "The fix" });
@@ -92,14 +92,18 @@ test("spot the bug: tap a line, then see the fix", async ({ page }) => {
 
 test("Next goes to the next card", async ({ page }) => {
   await open(page, "dicts-mcq-keyerror");
+  const position = page.getByText(/^Card \d+ of \d+/);
+  const before = Number((await position.textContent())?.match(/\d+/)?.[0]);
   await radio(page, /It raises KeyError/).tap();
   await check(page).tap();
   await page.getByRole("button", { name: "Next" }).tap();
-  await expect(page.getByText(/^Card 3 of/)).toBeVisible();
+  await expect(position).toContainText(`Card ${before + 1} of`);
   await expect(check(page)).toBeDisabled();
 });
 
 test("every gallery card fits the phone width and has big tap targets", async ({ page }) => {
+  // Hundreds of cards: measure everything in one evaluate per card.
+  test.setTimeout(240_000);
   await page.goto("./#/gallery");
   const links = page.getByRole("main").getByRole("listitem").getByRole("link");
   const hrefs = await links.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("href")));
@@ -109,14 +113,12 @@ test("every gallery card fits the phone width and has big tap targets", async ({
   for (const id of ids) {
     await open(page, id);
     await expect(page.getByRole("heading", { level: 2 })).toBeVisible();
-    const sideways = await page.evaluate(
-      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-    );
-    expect(sideways, id).toBe(0);
-    for (const target of await page.getByRole("radio").all()) {
-      const box = await target.boundingBox();
-      expect(box?.height, id).toBeGreaterThanOrEqual(44);
-      expect(box?.width, id).toBeGreaterThanOrEqual(44);
-    }
+    const layout = await page.evaluate(() => ({
+      sideways: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      small: [...document.querySelectorAll("[role=radio], article button")]
+        .map((el) => el.getBoundingClientRect())
+        .filter((r) => r.height < 44 || r.width < 44).length,
+    }));
+    expect(layout, id).toEqual({ sideways: 0, small: 0 });
   }
 });

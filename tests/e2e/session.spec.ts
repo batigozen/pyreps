@@ -2,6 +2,20 @@ import { expect, test, type Page } from "@playwright/test";
 
 const position = (page: Page) => page.getByTestId("session-position");
 
+/** Settings: keep only the given topic on (or none), so tests don't depend on the card bank. */
+async function onlyTopic(page: Page, keep: RegExp | null) {
+  await page.goto("./#/settings");
+  for (const box of await page.getByRole("checkbox").all()) {
+    const name =
+      (await box.getAttribute("aria-label")) ?? (await box.locator("xpath=..").textContent()) ?? "";
+    const wanted = keep !== null && keep.test(name);
+    if ((await box.isChecked()) !== wanted) {
+      await box.tap();
+      await expect(box).toBeChecked({ checked: wanted });
+    }
+  }
+}
+
 async function giveUpAndNext(page: Page) {
   const show = page.getByRole("button", { name: /^Show (answer|solution)$/ });
   await show.tap();
@@ -43,9 +57,12 @@ test("closing keeps the session, and Continue resumes it", async ({ page }) => {
 });
 
 test("a right answer is saved as Good, and 'I guessed' makes it Hard", async ({ page }) => {
+  // With only dicts on, the first new card is dicts-predict-get-default.
+  await onlyTopic(page, /Dictionaries in depth/);
   await page.goto("./");
   await page.getByRole("button", { name: /Start today's reps/ }).tap();
   await expect(page.getByRole("heading", { level: 2 })).toHaveText("What does this print?");
+  await expect(page.getByRole("group", { name: "Code" })).toContainText('cdr.get("reason")');
   await page.getByLabel("Your answer").fill("None unknown True");
   await page.getByRole("button", { name: "Check" }).tap();
 
@@ -60,11 +77,6 @@ test("settings change today's new cards and the text size", async ({ page }) => 
   await page.goto("./#/settings");
   await page.getByRole("button", { name: "Fewer: New cards" }).tap();
   await expect(page.getByRole("status", { name: "New cards" })).toHaveText("7");
-  // dicts and unpack have 6 seed cards each; without dicts only 6 are left.
-  // The box changes once the setting is saved, a moment after the tap.
-  const dicts = page.getByRole("checkbox", { name: /Dictionaries in depth/ });
-  await dicts.tap();
-  await expect(dicts).not.toBeChecked();
   await page.getByRole("radio", { name: "Large" }).tap();
   await expect
     .poll(() =>
@@ -73,9 +85,15 @@ test("settings change today's new cards and the text size", async ({ page }) => 
     .toBe("1.15");
 
   await page.getByRole("link", { name: "Back to Today" }).tap();
-  await expect(page.getByTestId("new-count")).toHaveText("6");
+  await expect(page.getByTestId("new-count")).toHaveText("7");
   await page.reload();
-  await expect(page.getByTestId("new-count")).toHaveText("6");
+  await expect(page.getByTestId("new-count")).toHaveText("7");
+
+  // With no finished topics there are no new cards at all.
+  await onlyTopic(page, null);
+  await page.getByRole("link", { name: "Back to Today" }).tap();
+  await expect(page.getByTestId("new-count")).toHaveText("0");
+  await expect(page.getByText(/Nothing to do yet/)).toBeVisible();
 });
 
 test("practise a topic without changing the schedule of new cards", async ({ page }) => {
