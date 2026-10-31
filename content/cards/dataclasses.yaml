@@ -1,0 +1,573 @@
+# DATACLASSES: dataclasses, enums and inheritance (about 20 cards).
+- id: dataclasses-predict-repr-eq
+  type: predict
+  topic: dataclasses
+  level: 1
+  prompt: What does this print?
+  code: |
+    from dataclasses import dataclass
+
+    @dataclass
+    class Cdr:
+        call_id: str
+        trunk: str
+        sip_code: int
+
+    a = Cdr("c1001", "ic-rtd-02", 480)
+    print(a)
+    print(a == Cdr("c1001", "ic-rtd-02", 480))
+  answer: |-
+    Cdr(call_id='c1001', trunk='ic-rtd-02', sip_code=480)
+    True
+  options:
+    - "Cdr(call_id='c1001', trunk='ic-rtd-02', sip_code=480)\nTrue"
+    - "<Cdr object>\nFalse"
+    - "Cdr(c1001, ic-rtd-02, 480)\nTrue"
+    - "Cdr(call_id='c1001', trunk='ic-rtd-02', sip_code=480)\nFalse"
+  explain: >-
+    @dataclass writes __init__, __repr__ and __eq__ from the field list. The repr shows
+    every field, and == compares the fields, so two records with the same data are
+    equal.
+  tags: [dataclass, repr, eq]
+
+- id: dataclasses-predict-order
+  type: predict
+  topic: dataclasses
+  level: 2
+  prompt: What does this print?
+  code: |
+    from dataclasses import dataclass
+
+    @dataclass(order=True)
+    class Alarm:
+        severity: int
+        name: str
+
+    alarms = [Alarm(2, "low-asr"), Alarm(1, "high-503"),
+              Alarm(2, "high-487")]
+    print([a.name for a in sorted(alarms)])
+  answer: "['high-503', 'high-487', 'low-asr']"
+  options:
+    - "['high-503', 'high-487', 'low-asr']"
+    - "['high-487', 'high-503', 'low-asr']"
+    - "['high-503', 'low-asr', 'high-487']"
+    - "['low-asr', 'high-487', 'high-503']"
+  explain: >-
+    order=True compares objects like tuples of their fields, top to bottom: severity
+    first, and name only when the severities are equal. So the order of the fields
+    is the sort order.
+  tags: [dataclass, order]
+
+- id: dataclasses-predict-compare-false
+  type: predict
+  topic: dataclasses
+  level: 2
+  prompt: What does this print?
+  code: |
+    from dataclasses import dataclass, field
+
+    @dataclass
+    class Alarm:
+        name: str
+        sbc: str
+        seen_at: str = field(compare=False)
+
+    a = Alarm("high-503", "sbc-ic-02", "09:05")
+    b = Alarm("high-503", "sbc-ic-02", "09:16")
+    print(a == b)
+  answer: "True"
+  explain: >-
+    field(compare=False) leaves seen_at out of == (and out of ordering). The same
+    alarm seen twice is equal, which helps when you remove duplicates.
+  tags: [dataclass, field]
+
+- id: dataclasses-predict-enum
+  type: predict
+  topic: dataclasses
+  level: 1
+  prompt: What does this print?
+  code: |
+    from enum import Enum
+
+    class Severity(Enum):
+        CRITICAL = "crit"
+        WARNING = "warn"
+
+    s = Severity.CRITICAL
+    print(s.name, s.value, Severity("warn"))
+  answer: "CRITICAL crit Severity.WARNING"
+  options:
+    - "CRITICAL crit Severity.WARNING"
+    - "crit CRITICAL Severity.WARNING"
+    - "CRITICAL crit warn"
+    - "Severity.CRITICAL crit WARNING"
+  explain: >-
+    .name is the Python name, .value is what you assigned. Severity("warn") looks a
+    member up by its value, which is handy when the value comes from JSON or a config
+    file.
+  tags: [enum]
+
+- id: dataclasses-predict-post-init
+  type: predict
+  topic: dataclasses
+  level: 2
+  prompt: What does this print?
+  code: |
+    from dataclasses import dataclass, field
+
+    @dataclass
+    class TrunkStats:
+        calls: int
+        ok: int
+        asr: float = field(init=False)
+
+        def __post_init__(self):
+            self.asr = round(self.ok / self.calls, 2)
+
+    print(TrunkStats(17, 10))
+  answer: "TrunkStats(calls=17, ok=10, asr=0.59)"
+  explain: >-
+    __post_init__ runs right after the generated __init__, so it can work out extra
+    fields. field(init=False) keeps asr out of the constructor, but it still shows in
+    the repr.
+  tags: [dataclass, post-init]
+
+- id: dataclasses-predict-super-init
+  type: predict
+  topic: dataclasses
+  level: 2
+  prompt: What does this print?
+  code: |
+    class Pod:
+        def __init__(self, name):
+            self.name = name
+            self.restarts = 0
+
+    class SipPod(Pod):
+        def __init__(self, name, port):
+            super().__init__(name)
+            self.port = port
+
+    p = SipPod("sip-proxy-x2k9p", 5060)
+    print(p.name, p.restarts, p.port, isinstance(p, Pod))
+  answer: "sip-proxy-x2k9p 0 5060 True"
+  explain: >-
+    super().__init__(name) runs the parent's __init__, which sets name and restarts.
+    Then the child adds port. A SipPod is also a Pod, so isinstance says True.
+  tags: [inheritance, super]
+
+- id: dataclasses-mcq-generated
+  type: mcq
+  topic: dataclasses
+  level: 1
+  prompt: Which methods does a plain @dataclass write for you?
+  options:
+    - __init__, __repr__ and __eq__
+    - __init__ only
+    - __init__, __repr__, __eq__ and __lt__
+    - __str__ and __hash__
+  correct: 0
+  explain: >-
+    The defaults are __init__, __repr__ and __eq__. order=True adds <, <=, > and >=.
+    frozen=True (with eq) also adds __hash__.
+  tags: [dataclass]
+
+- id: dataclasses-mcq-frozen
+  type: mcq
+  topic: dataclasses
+  level: 2
+  prompt: What happens on the last line?
+  code: |
+    from dataclasses import dataclass
+
+    @dataclass(frozen=True)
+    class Config:
+        timeout: int = 5
+
+    cfg = Config()
+    cfg.timeout = 10
+  options:
+    - "It raises FrozenInstanceError"
+    - "It works: timeout is 10"
+    - "Nothing happens; timeout stays 5"
+    - "It creates a new Config"
+  correct: 0
+  explain: >-
+    A frozen dataclass can't be changed after it is made. To get a changed copy, use
+    dataclasses.replace(cfg, timeout=10). Frozen objects can also be dict keys and set
+    items.
+  tags: [dataclass, frozen, raises]
+
+- id: dataclasses-mcq-override-attr
+  type: mcq
+  topic: dataclasses
+  level: 2
+  prompt: What are p.port and Pod.port?
+  code: |
+    class Pod:
+        port = 8080
+
+    class SipPod(Pod):
+        port = 5060
+
+    p = SipPod()
+  options:
+    - 5060 and 8080
+    - 5060 and 5060
+    - 8080 and 8080
+    - 8080 and 5060
+  correct: 0
+  explain: >-
+    Python looks for p.port on the object, then on SipPod, then on Pod. SipPod's own
+    port hides the parent's for SipPod objects, and Pod keeps 8080.
+  tags: [inheritance, class-attribute]
+
+- id: dataclasses-fill-default-factory
+  type: fill
+  topic: dataclasses
+  level: 2
+  prompt: Give each Sbc its own new alarm list.
+  code: |
+    from dataclasses import dataclass, field
+
+    @dataclass
+    class Sbc:
+        name: str
+        alarms: list = field(____=list)
+
+    a = Sbc("sbc-ic-01")
+    a.alarms.append("high-503")
+    print(Sbc("sbc-ic-02").alarms)
+  blanks:
+    - answer: default_factory
+      options: [default_factory, default, factory, init]
+  expected_output: "[]"
+  explain: >-
+    default_factory=list calls list() for every new object. A plain = [] default is
+    refused by dataclasses for this reason: it would be shared, the trap from the
+    functions and classes topics.
+  tags: [dataclass, field, mutable]
+
+- id: dataclasses-fill-enum-value
+  type: fill
+  topic: dataclasses
+  level: 1
+  prompt: Print the value stored in the enum member.
+  code: |
+    from enum import Enum
+
+    class Severity(Enum):
+        CRITICAL = "crit"
+        WARNING = "warn"
+
+    print(Severity.CRITICAL.____)
+  blanks:
+    - answer: value
+      options: [value, name, key, label]
+  expected_output: "crit"
+  explain: >-
+    .value is the data ("crit"), .name is the Python name ("CRITICAL"). Write .value
+    to JSON or a database, and read it back with Severity("crit").
+  tags: [enum]
+
+- id: dataclasses-fill-frozen
+  type: fill
+  topic: dataclasses
+  level: 2
+  prompt: Make Route usable in a set.
+  code: |
+    from dataclasses import dataclass
+
+    @dataclass(____=True)
+    class Route:
+        trunk: str
+        prefix: str
+
+    routes = {Route("ic-ams-01", "+3120"),
+              Route("ic-ams-01", "+3120"),
+              Route("ic-rtd-02", "+3110")}
+    print(len(routes))
+  blanks:
+    - answer: frozen
+      options: [frozen, final, const, readonly]
+  expected_output: "2"
+  explain: >-
+    A frozen dataclass can't change, so Python gives it a __hash__ from its fields.
+    Two equal routes count once in a set. A normal dataclass is unhashable.
+  tags: [dataclass, frozen, hashable]
+
+- id: dataclasses-spotbug-mutable-default
+  type: spot_bug
+  topic: dataclasses
+  level: 2
+  prompt: This should print an empty list. Tap the line with the bug.
+  code: |
+    from dataclasses import dataclass, field
+
+    @dataclass
+    class Sbc:
+        name: str
+        alarms: list = []
+
+    print(Sbc("sbc-ic-01").alarms)
+  bug_line: 6
+  fixed_code: |
+    from dataclasses import dataclass, field
+
+    @dataclass
+    class Sbc:
+        name: str
+        alarms: list = field(default_factory=list)
+
+    print(Sbc("sbc-ic-01").alarms)
+  expected_output: "[]"
+  explain: >-
+    dataclasses refuse a list, dict or set as a plain default: "ValueError: mutable
+    default ... use default_factory". field(default_factory=list) makes a new list
+    for each object.
+  tags: [dataclass, mutable]
+
+- id: dataclasses-spotbug-parent-init
+  type: spot_bug
+  topic: dataclasses
+  level: 2
+  prompt: This should print "sip-proxy-x2k9p 5060". Tap the line with the bug.
+  code: |
+    class Pod:
+        def __init__(self, name):
+            self.name = name
+
+    class SipPod(Pod):
+        def __init__(self, name, port):
+            Pod.__init__(name)
+            self.port = port
+
+    p = SipPod("sip-proxy-x2k9p", 5060)
+    print(p.name, p.port)
+  bug_line: 7
+  fixed_code: |
+    class Pod:
+        def __init__(self, name):
+            self.name = name
+
+    class SipPod(Pod):
+        def __init__(self, name, port):
+            super().__init__(name)
+            self.port = port
+
+    p = SipPod("sip-proxy-x2k9p", 5060)
+    print(p.name, p.port)
+  expected_output: "sip-proxy-x2k9p 5060"
+  explain: >-
+    Pod.__init__(name) calls the method on the class without an object, so name lands
+    in self and the real name is missing: TypeError. super().__init__(name) passes
+    self for you.
+  tags: [inheritance, super]
+
+- id: dataclasses-spotbug-enum-string
+  type: spot_bug
+  topic: dataclasses
+  level: 3
+  prompt: This should print "page the on-call". Tap the line with the bug.
+  code: |
+    from enum import Enum
+
+    class Severity(Enum):
+        CRITICAL = "crit"
+        WARNING = "warn"
+
+    sev = Severity("crit")
+    if sev == "crit":
+        print("page the on-call")
+    else:
+        print("log only")
+  bug_line: 8
+  fixed_code: |
+    from enum import Enum
+
+    class Severity(Enum):
+        CRITICAL = "crit"
+        WARNING = "warn"
+
+    sev = Severity("crit")
+    if sev == Severity.CRITICAL:
+        print("page the on-call")
+    else:
+        print("log only")
+  expected_output: "page the on-call"
+  explain: >-
+    An Enum member is not equal to its value: Severity.CRITICAL == "crit" is False.
+    Compare with the member, or use sev.value == "crit". (StrEnum members do equal
+    their strings.)
+  tags: [enum]
+
+- id: dataclasses-parsons-define
+  type: parsons
+  topic: dataclasses
+  level: 1
+  prompt: "Put the lines in order so it prints Trunk(name='ic-ams-01', calls=17)."
+  lines:
+    - "from dataclasses import dataclass"
+    - "@dataclass"
+    - "class Trunk:"
+    - "    name: str"
+    - "    calls: int"
+    - "t = Trunk(\"ic-ams-01\", 17)"
+    - "print(t)"
+  distractors:
+    - "    name = str"
+  expected_output: "Trunk(name='ic-ams-01', calls=17)"
+  explain: >-
+    Fields are written as `name: type`. The order of the fields is the order of the
+    __init__ arguments, so "ic-ams-01" goes to name. `name = str` would be a class
+    attribute, not a field.
+  tags: [dataclass]
+
+- id: dataclasses-parsons-post-init
+  type: parsons
+  topic: dataclasses
+  level: 2
+  prompt: Put the lines in order so TrunkStats(15, 6) prints 0.4.
+  setup: |
+    from dataclasses import dataclass
+  lines:
+    - "@dataclass"
+    - "class TrunkStats:"
+    - "    calls: int"
+    - "    ok: int"
+    - "    def __post_init__(self):"
+    - "        self.asr = self.ok / self.calls"
+    - "print(TrunkStats(15, 6).asr)"
+  distractors:
+    - "    def __init__(self):"
+  expected_output: "0.4"
+  explain: >-
+    Fields first, in the order the arguments come: calls, then ok. __post_init__ runs
+    after the generated __init__. Writing your own __init__ would replace the
+    generated one.
+  tags: [dataclass, post-init]
+
+- id: dataclasses-parsons-enum-classmethod
+  type: parsons
+  topic: dataclasses
+  level: 2
+  prompt: Put the lines in order to print the class of each SIP code.
+  setup: |
+    from enum import Enum
+
+    class SipClass(Enum):
+        SUCCESS = 2
+        CLIENT_ERROR = 4
+        SERVER_ERROR = 5
+
+        @classmethod
+        def of(cls, code):
+            return cls(code // 100)
+  lines:
+    - "codes = [200, 486, 503]"
+    - "for code in codes:"
+    - "    sip_class = SipClass.of(code)"
+    - "    print(code, sip_class.name)"
+  distractors:
+    - "    sip_class = SipClass(code)"
+  expected_output: |-
+    200 SUCCESS
+    486 CLIENT_ERROR
+    503 SERVER_ERROR
+  explain: >-
+    The classmethod turns a code into a member: 486 // 100 is 4, and SipClass(4) is
+    CLIENT_ERROR. SipClass(486) would raise ValueError, because no member has the
+    value 486.
+  tags: [enum, classmethod]
+
+- id: dataclasses-write-pod
+  type: write
+  topic: dataclasses
+  level: 2
+  prompt: "Make Pod a dataclass: name, restarts (default 0), labels (default: a new empty dict), and a property healthy that is True when restarts < 3."
+  starter: |
+    from dataclasses import dataclass, field
+
+    class Pod:
+        pass
+
+    p = Pod("cdr-exporter-bjmw2", restarts=6)
+    print(p, p.healthy)
+  tests: |
+    p = Pod("cdr-exporter-bjmw2", restarts=6)
+    check(lambda: p.name == "cdr-exporter-bjmw2" and p.restarts == 6, "Pod(name, restarts=6) works")
+    check(lambda: Pod("x").restarts == 0, "restarts defaults to 0")
+    a, b = Pod("a"), Pod("b")
+    a.labels["app"] = "sip-proxy"
+    check(lambda: b.labels == {}, "each pod gets its own labels dict")
+    check(lambda: Pod("x", 2).healthy and not p.healthy, "healthy means restarts < 3")
+    check(lambda: Pod("x") == Pod("x"), "two equal pods compare equal (@dataclass)")
+  hint: >-
+    Put @dataclass on the class and list the fields: name: str, restarts: int = 0,
+    labels: dict = field(default_factory=dict). Then add @property healthy.
+  solution: |
+    from dataclasses import dataclass, field
+
+    @dataclass
+    class Pod:
+        name: str
+        restarts: int = 0
+        labels: dict = field(default_factory=dict)
+
+        @property
+        def healthy(self):
+            return self.restarts < 3
+
+    p = Pod("cdr-exporter-bjmw2", restarts=6)
+    print(p, p.healthy)
+  explain: >-
+    A dataclass removes the boilerplate (__init__, __repr__, __eq__) and still lets
+    you add methods and properties. The cdr-exporter pod in the sample data restarted
+    6 times, so it is not healthy.
+  tags: [dataclass, field, property]
+
+- id: dataclasses-write-severity
+  type: write
+  topic: dataclasses
+  level: 3
+  prompt: "Write the Severity enum (OK=\"ok\", WARN=\"warn\", CRIT=\"crit\") with a classmethod from_asr: below 0.5 is CRIT, below 0.8 is WARN, else OK."
+  starter: |
+    from enum import Enum
+
+    class Severity:
+        pass
+
+    for asr in (0.4, 0.59, 0.81):
+        print(asr, Severity.from_asr(asr))
+  tests: |
+    check(lambda: issubclass(Severity, Enum), "Severity should be an Enum")
+    check(lambda: Severity("crit") is Severity.CRIT, "the value of CRIT is 'crit'")
+    check(lambda: Severity.from_asr(0.4) is Severity.CRIT, "0.4 is CRIT")
+    check(lambda: Severity.from_asr(0.59) is Severity.WARN, "0.59 is WARN")
+    check(lambda: Severity.from_asr(0.8) is Severity.OK, "0.8 is OK (not below 0.8)")
+  hint: >-
+    class Severity(Enum): with three members. Then @classmethod def from_asr(cls,
+    asr): return cls.CRIT if asr < 0.5, cls.WARN if asr < 0.8, otherwise cls.OK.
+  solution: |
+    from enum import Enum
+
+    class Severity(Enum):
+        OK = "ok"
+        WARN = "warn"
+        CRIT = "crit"
+
+        @classmethod
+        def from_asr(cls, asr):
+            if asr < 0.5:
+                return cls.CRIT
+            if asr < 0.8:
+                return cls.WARN
+            return cls.OK
+
+    for asr in (0.4, 0.59, 0.81):
+        print(asr, Severity.from_asr(asr))
+  explain: >-
+    An Enum gives a fixed set of named values instead of loose strings, so a typo
+    like "crti" fails loudly. The classmethod keeps the thresholds next to the levels
+    they produce.
+  tags: [enum, classmethod]
