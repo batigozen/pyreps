@@ -1,0 +1,461 @@
+# TEXT: f-string formats, regex, JSON, CSV and dates (about 20 cards).
+- id: text-predict-align
+  type: predict
+  topic: text
+  level: 1
+  prompt: What does this print? (The | marks show the edges.)
+  code: |
+    name, calls = "ic-ams-01", 17
+    print(f"|{name:<12}|{calls:>5}|")
+  answer: "|ic-ams-01   |   17|"
+  options:
+    - "|ic-ams-01   |   17|"
+    - "|   ic-ams-01|17   |"
+    - "|ic-ams-01|17|"
+    - "|ic-ams-01   |17   |"
+  explain: >-
+    :<12 pads to 12 characters with the text on the left; :>5 puts it on the right.
+    Numbers usually go right-aligned so the digits line up in a table.
+  tags: [f-string, format]
+
+- id: text-predict-format-specs
+  type: predict
+  topic: text
+  level: 1
+  prompt: What does this print?
+  code: |
+    asr, cdrs, pod, ms = 0.5882, 48213, 7, 445.678
+    print(f"{asr:.1%} {cdrs:,} {pod:03d} {ms:.2f}")
+  answer: "58.8% 48,213 007 445.68"
+  options:
+    - "58.8% 48,213 007 445.68"
+    - "0.6% 48213 7 445.68"
+    - "58.8% 48.213 700 445.67"
+    - "0.5882% 48,213 007 445.678"
+  explain: >-
+    .1% multiplies by 100 and adds %, with 1 decimal. , adds thousands separators.
+    03d pads an int with zeros to 3 digits. .2f rounds to 2 decimals.
+  tags: [f-string, format]
+
+- id: text-predict-debug-equals
+  type: predict
+  topic: text
+  level: 2
+  prompt: What does this print?
+  code: |
+    trunk, asr = "ic-rtd-02", 0.4
+    print(f"{trunk=} {asr=:.0%}")
+  answer: "trunk='ic-rtd-02' asr=40%"
+  options:
+    - "trunk='ic-rtd-02' asr=40%"
+    - "trunk=ic-rtd-02 asr=40%"
+    - "ic-rtd-02 40%"
+    - "trunk='ic-rtd-02' asr=0.4"
+  explain: >-
+    {x=} prints the name, an equals sign and the repr of the value, so strings get
+    quotes. A format spec can follow: {asr=:.0%}. Great for quick debug prints.
+  tags: [f-string, debug]
+
+- id: text-predict-csv-strings
+  type: predict
+  topic: text
+  level: 2
+  prompt: What does this print?
+  code: |
+    from voicelab import load_cdrs
+    row = load_cdrs()[0]
+    print(row["duration_s"] + row["duration_s"],
+          int(row["duration_s"]) * 2)
+  answer: "140140 280"
+  options:
+    - "140140 280"
+    - "280 280"
+    - "140140 140140"
+    - "280 140140"
+  explain: >-
+    csv.DictReader gives every value as a string, so + joins the text "140" twice.
+    Convert numbers yourself with int() or float() before you calculate.
+  tags: [csv, types]
+
+- id: text-predict-json-get-chain
+  type: predict
+  topic: text
+  level: 2
+  prompt: What does this print?
+  code: |
+    import json
+    from voicelab import fake_prometheus
+    reply = json.loads(fake_prometheus("asr_failures"))
+    result = reply.get("data", {}).get("result", [])
+    first = result[1]
+    print(len(result), first["metric"]["trunk"],
+          float(first["value"][1]))
+  answer: "3 ic-rtd-02 0.142"
+  explain: >-
+    .get("data", {}) returns an empty dict if the key is missing, so the next .get
+    still works. A Prometheus value is [timestamp, "string"], so float() turns
+    "0.142" into a number.
+  tags: [json, get, prometheus]
+
+- id: text-predict-timedelta
+  type: predict
+  topic: text
+  level: 2
+  prompt: What does this print?
+  code: |
+    from datetime import datetime, timedelta
+    start = datetime.fromisoformat("2026-10-21T09:05:00")
+    end = start + timedelta(minutes=12, seconds=30)
+    print(end.strftime("%H:%M"), (end - start).total_seconds())
+  answer: "09:17 750.0"
+  options:
+    - "09:17 750.0"
+    - "09:17 12.5"
+    - "09:18 750"
+    - "9:17 750.0"
+  explain: >-
+    fromisoformat reads "2026-10-21T09:05:00". Adding a timedelta gives a new
+    datetime. %H:%M shows hours and minutes with leading zeros, and the seconds are
+    dropped, not rounded. Subtracting two datetimes gives a timedelta.
+  tags: [datetime, timedelta]
+
+- id: text-mcq-match-none
+  type: mcq
+  topic: text
+  level: 2
+  prompt: What is m?
+  code: |
+    import re
+    m = re.match(r"\d{3}", "INVITE -> 503")
+  options:
+    - None, because match only looks at the start of the text
+    - "A match for '503'"
+    - "The string '503'"
+    - It raises ValueError
+  correct: 0
+  explain: >-
+    re.match only matches at position 0, and the text starts with "INVITE".
+    re.search looks anywhere. Always check `if m:` before using a match, or you get
+    AttributeError on None.
+  tags: [regex, match]
+
+- id: text-mcq-raw-string
+  type: mcq
+  topic: text
+  level: 1
+  prompt: Why are regex patterns written as r"\d+" instead of "\d+"?
+  options:
+    - So backslashes reach the regex engine as typed
+    - Raw strings run faster
+    - The r turns on case-insensitive matching
+    - re only accepts raw strings
+  correct: 0
+  explain: >-
+    In a normal string Python reads backslash escapes first: "\n" is a newline and
+    "\b" a backspace. r"..." keeps every backslash, so "\b" stays a word boundary.
+  tags: [regex, raw-string]
+
+- id: text-mcq-dumps-indent
+  type: mcq
+  topic: text
+  level: 1
+  prompt: What does json.dumps(report, indent=2) return?
+  options:
+    - A str with newlines and 2-space indents
+    - A dict that is ready to send
+    - Bytes
+    - Nothing; it writes a file
+  correct: 0
+  explain: >-
+    dumps means "dump to string". json.dump (no s) writes to a file. indent=2 is for
+    people to read; leave it out when size matters.
+  tags: [json]
+
+- id: text-fill-groupdict
+  type: fill
+  topic: text
+  level: 2
+  prompt: Turn the named groups into a dict.
+  code: |
+    import re
+    line = "sbc-ic-02 INVITE -> 503 Service Unavailable"
+    pattern = r"(?P<sbc>\S+) INVITE -> (?P<code>\d{3})"
+    m = re.search(pattern, line)
+    print(m.____())
+  blanks:
+    - answer: groupdict
+      options: [groupdict, groups, group, dict]
+  expected_output: "{'sbc': 'sbc-ic-02', 'code': '503'}"
+  explain: >-
+    (?P<name>...) names a group, and groupdict() returns {name: text}. groups() gives
+    a tuple without names. m["code"] reads one group.
+  tags: [regex, named-groups]
+
+- id: text-fill-findall
+  type: fill
+  topic: text
+  level: 2
+  prompt: Add up every setup_ms in the log.
+  code: |
+    import re
+    from voicelab import read_log
+    text = "\n".join(read_log())
+    values = re.____(r"setup_ms=(\d+)", text)
+    print(len(values), sum(int(v) for v in values))
+  blanks:
+    - answer: findall
+      options: [findall, match, search, split]
+  expected_output: "16 12158"
+  explain: >-
+    findall returns every match as a list. With one group it returns just the group
+    text, as strings, so int() is still needed.
+  tags: [regex, findall]
+
+- id: text-fill-strftime
+  type: fill
+  topic: text
+  level: 1
+  prompt: Show the call start as hours and minutes.
+  code: |
+    from datetime import datetime
+    t = datetime.fromisoformat("2026-10-21T09:05:00")
+    print(t.____("%H:%M"))
+  blanks:
+    - answer: strftime
+      options: [strftime, strptime, format, isoformat]
+  expected_output: "09:05"
+  explain: >-
+    strftime = "string from time" (datetime to text). strptime = "string parse time"
+    (text to datetime). For ISO text, fromisoformat is simpler than strptime.
+  tags: [datetime]
+
+- id: text-spotbug-csv-int
+  type: spot_bug
+  topic: text
+  level: 2
+  prompt: This should print the total talk time in seconds. Tap the line with the bug.
+  code: |
+    from voicelab import load_cdrs
+    total = 0
+    for row in load_cdrs():
+        total += row["duration_s"]
+    print(total)
+  bug_line: 4
+  fixed_code: |
+    from voicelab import load_cdrs
+    total = 0
+    for row in load_cdrs():
+        total += int(row["duration_s"])
+    print(total)
+  expected_output: "6093"
+  explain: >-
+    CSV values are strings, and 0 + "140" raises TypeError. Convert first:
+    int(row["duration_s"]).
+  tags: [csv, types]
+
+- id: text-spotbug-search-not-match
+  type: spot_bug
+  topic: text
+  level: 2
+  prompt: This should print 3087. Tap the line with the bug.
+  code: |
+    import re
+    from voicelab import read_log
+    line = read_log()[4]
+    m = re.match(r"setup_ms=(\d+)", line)
+    print(int(m[1]))
+  bug_line: 4
+  fixed_code: |
+    import re
+    from voicelab import read_log
+    line = read_log()[4]
+    m = re.search(r"setup_ms=(\d+)", line)
+    print(int(m[1]))
+  expected_output: "3087"
+  explain: >-
+    The line starts with a timestamp, so re.match finds nothing and returns None, and
+    m[1] fails. re.search scans the whole line.
+  tags: [regex, search]
+
+- id: text-spotbug-json-load
+  type: spot_bug
+  topic: text
+  level: 2
+  prompt: This should print the first pod name. Tap the line with the bug.
+  code: |
+    import json
+    from voicelab import fake_kubectl
+    text = fake_kubectl("get", "pods", "-o", "json")
+    pods = json.load(text)
+    print(pods["items"][0]["metadata"]["name"])
+  bug_line: 4
+  fixed_code: |
+    import json
+    from voicelab import fake_kubectl
+    text = fake_kubectl("get", "pods", "-o", "json")
+    pods = json.loads(text)
+    print(pods["items"][0]["metadata"]["name"])
+  expected_output: "sip-proxy-7d9f8c6b5d-x2k9p"
+  explain: >-
+    json.load reads from a file object and calls .read() on it, so a str fails with
+    AttributeError. json.loads reads from a string. Same pair as dump and dumps.
+  tags: [json]
+
+- id: text-parsons-log-regex
+  type: parsons
+  topic: text
+  level: 2
+  prompt: Put the lines in order to print the SBC of every 503 in the log.
+  setup: |
+    import re
+    from voicelab import read_log
+  lines:
+    - 'LINE = re.compile(r"(?P<sbc>sbc-\S+) .*-> (?P<code>\d+)")'
+    - "for line in read_log():"
+    - "    m = LINE.search(line)"
+    - "    if m and m[\"code\"] == \"503\":"
+    - "        print(m[\"sbc\"], m[\"code\"])"
+  distractors:
+    - "    if m[\"code\"] == \"503\":"
+  expected_output: "sbc-ic-02 503"
+  explain: >-
+    Compile the pattern once, before the loop. search returns None for the keepalive
+    line and the cut-off line, so check `m and ...` first. Without that check the
+    program crashes on the first line that doesn't match.
+  tags: [regex, named-groups]
+
+- id: text-parsons-report-table
+  type: parsons
+  topic: text
+  level: 2
+  prompt: Put the lines in order to print a small table with aligned columns.
+  setup: |
+    rows = [("ic-ams-01", 17, 0.588), ("ic-rtd-02", 15, 0.4)]
+  lines:
+    - "print(f\"{'trunk':<12}{'calls':>6}{'asr':>7}\")"
+    - "for name, calls, asr in rows:"
+    - "    print(f\"{name:<12}{calls:>6}{asr:>7.1%}\")"
+  distractors:
+    - "    print(f\"{name:>12}{calls:<6}{asr:>7.1%}\")"
+  expected_output: |-
+    trunk        calls    asr
+    ic-ams-01       17  58.8%
+    ic-rtd-02       15  40.0%
+  explain: >-
+    Use the same widths in the header and in the rows so the columns line up. Text on
+    the left (<), numbers on the right (>).
+  tags: [f-string, format]
+
+- id: text-parsons-pod-restarts
+  type: parsons
+  topic: text
+  level: 2
+  prompt: Put the lines in order to print the restarts of every pod.
+  setup: |
+    import json
+    from voicelab import fake_kubectl
+  lines:
+    - "pods = json.loads(fake_kubectl())[\"items\"]"
+    - "for pod in pods:"
+    - "    statuses = pod[\"status\"].get(\"containerStatuses\", [])"
+    - "    restarts = sum(c[\"restartCount\"] for c in statuses)"
+    - "    print(pod[\"metadata\"][\"name\"], restarts)"
+  distractors:
+    - "    statuses = pod[\"status\"][\"containerStatuses\"]"
+  expected_output: |-
+    sip-proxy-7d9f8c6b5d-x2k9p 0
+    sip-proxy-7d9f8c6b5d-q8wlt 0
+    call-api-6d4b8f7c9a-m2xqp 1
+    cdr-exporter-g62q9xtk4r-bjmw2 6
+    kpi-collector-5d8f7c9b4f-2xvkp 0
+  explain: >-
+    A Pending pod has no containerStatuses yet. .get(..., []) gives an empty list,
+    and sum() of nothing is 0. With [] the loop crashes with KeyError on that pod.
+  tags: [json, get]
+
+- id: text-write-talk-time
+  type: write
+  topic: text
+  level: 2
+  prompt: "Return {trunk: total duration_s} as ints, for every trunk."
+  starter: |
+    from voicelab import load_cdrs
+    rows = load_cdrs()
+
+    def talk_time(rows):
+        """CSV values are strings."""
+        return {}
+
+    print(talk_time(rows))
+  tests: |
+    t = talk_time(rows)
+    check(lambda: t.get("ic-rtd-02") == 936, "ic-rtd-02 talked 936 seconds")
+    check(lambda: all(isinstance(v, int) for v in t.values()), "the values should be ints, not strings")
+    check(lambda: sum(t.values()) == 6093, "all 48 calls add up to 6093 seconds")
+    check(lambda: talk_time([]) == {}, "no rows should give {}")
+  hint: >-
+    Use a dict and .get(trunk, 0), or a defaultdict(int). Add
+    int(row["duration_s"]) for each row.
+  solution: |
+    from voicelab import load_cdrs
+    rows = load_cdrs()
+
+    def talk_time(rows):
+        total = {}
+        for row in rows:
+            t = row["trunk"]
+            total[t] = total.get(t, 0) + int(row["duration_s"])
+        return total
+
+    print(talk_time(rows))
+  explain: >-
+    The CSV gives text; the report needs numbers. Converting at the edge, where the
+    data comes in, keeps the rest of the code simple.
+  tags: [csv, types, counting]
+
+- id: text-write-calls-between
+  type: write
+  topic: text
+  level: 3
+  prompt: Count the calls that start at or after start, and before end. Both are ISO strings.
+  starter: |
+    from datetime import datetime
+    from voicelab import load_cdrs
+    rows = load_cdrs()
+
+    def calls_between(rows, start, end):
+        """calls_between(rows, "2026-10-21T09:00:00",
+                         "2026-10-21T09:30:00") -> int"""
+        return 0
+
+    print(calls_between(rows, "2026-10-21T09:00:00",
+                        "2026-10-21T09:30:00"))
+  tests: |
+    check(lambda: calls_between(rows, "2026-10-21T09:00:00", "2026-10-21T09:30:00") == 24, "24 calls start in the first half hour")
+    check(lambda: calls_between(rows, "2026-10-21T09:30:00", "2026-10-21T10:00:00") == 24, "24 calls in the second half hour")
+    check(lambda: calls_between(rows, "2026-10-21T09:00:15", "2026-10-21T09:00:16") == 1, "the start time itself counts")
+    check(lambda: calls_between(rows, "2026-10-21T10:00:00", "2026-10-21T11:00:00") == 0, "no calls after 10:00")
+  hint: >-
+    Turn start and end into datetimes with datetime.fromisoformat once. For each row,
+    convert row["start"] the same way and count it when start <= t < end.
+  solution: |
+    from datetime import datetime
+    from voicelab import load_cdrs
+    rows = load_cdrs()
+
+    def calls_between(rows, start, end):
+        lo = datetime.fromisoformat(start)
+        hi = datetime.fromisoformat(end)
+        count = 0
+        for row in rows:
+            t = datetime.fromisoformat(row["start"])
+            if lo <= t < hi:
+                count += 1
+        return count
+
+    print(calls_between(rows, "2026-10-21T09:00:00",
+                        "2026-10-21T09:30:00"))
+  explain: >-
+    Compare datetimes, not strings: it works across days and formats. A half-open
+    window [start, end) means each call lands in exactly one half hour.
+  tags: [datetime]
