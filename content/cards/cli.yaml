@@ -1,0 +1,517 @@
+# CLI: argparse and exit codes (about 20 cards). Cards call parse_args([...]) with a list,
+# the testable way, and catch SystemExit to show the exit code.
+- id: cli-predict-positional-option
+  type: predict
+  topic: cli
+  level: 1
+  prompt: What does this print?
+  code: |
+    import argparse
+    parser = argparse.ArgumentParser(prog="asrcheck")
+    parser.add_argument("trunk")
+    parser.add_argument("--threshold", type=float, default=0.65)
+    args = parser.parse_args(["ic-rtd-02", "--threshold=0.5"])
+    t = args.threshold
+    print(args.trunk, t, type(t).__name__)
+  answer: "ic-rtd-02 0.5 float"
+  explain: >-
+    A name without dashes is positional and required. --threshold is an option,
+    written as two words or as --threshold=0.5.
+    type=float converts the text "0.5" for you; without it, every value is a str.
+  tags: [argparse]
+
+- id: cli-predict-defaults
+  type: predict
+  topic: cli
+  level: 1
+  prompt: What does this print?
+  code: |
+    import argparse
+    parser = argparse.ArgumentParser(prog="asrcheck")
+    parser.add_argument("trunk")
+    parser.add_argument("--threshold", type=float, default=0.65)
+    parser.add_argument("--verbose", action="store_true")
+    print(parser.parse_args(["ic-ams-01"]))
+  answer: "Namespace(trunk='ic-ams-01', threshold=0.65, verbose=False)"
+  options:
+    - "Namespace(trunk='ic-ams-01', threshold=0.65, verbose=False)"
+    - "Namespace(trunk='ic-ams-01')"
+    - "Namespace(trunk='ic-ams-01', threshold=None, verbose=None)"
+    - "Namespace(trunk='ic-ams-01', threshold='0.65', verbose=True)"
+  explain: >-
+    Options that aren't given get their default. A store_true flag is False unless it
+    appears. The dashes become plain attribute names: args.verbose.
+  tags: [argparse, default]
+
+- id: cli-predict-bad-type
+  type: predict
+  topic: cli
+  level: 2
+  prompt: What does this print? (argparse also writes an error to stderr.)
+  code: |
+    import argparse
+    parser = argparse.ArgumentParser(prog="asrcheck")
+    parser.add_argument("--threshold", type=float)
+    try:
+        parser.parse_args(["--threshold", "high"])
+    except SystemExit as e:
+        print("exit code", e.code)
+  answer: "exit code 2"
+  options:
+    - "exit code 2"
+    - "exit code 1"
+    - "exit code 0"
+    - "exit code None"
+  explain: >-
+    On bad arguments argparse prints the usage and an error, then raises
+    SystemExit(2). Exit code 2 is the Unix convention for "used wrongly".
+  tags: [argparse, exit-code]
+
+- id: cli-predict-choices
+  type: predict
+  topic: cli
+  level: 2
+  prompt: What does this print?
+  code: |
+    import argparse
+    parser = argparse.ArgumentParser(prog="alarm")
+    parser.add_argument("--level", choices=["warn", "crit"])
+    for value in ["crit", "info"]:
+        try:
+            print(parser.parse_args(["--level", value]).level)
+        except SystemExit as e:
+            print("rejected", e.code)
+  answer: |-
+    crit
+    rejected 2
+  explain: >-
+    choices= lists the only allowed values. Anything else is rejected with exit code 2
+    and a message that lists the valid choices.
+  tags: [argparse, choices]
+
+- id: cli-predict-subcommands
+  type: predict
+  topic: cli
+  level: 2
+  prompt: What does this print?
+  code: |
+    import argparse
+    parser = argparse.ArgumentParser(prog="voicekit")
+    sub = parser.add_subparsers(dest="command", required=True)
+    report = sub.add_parser("report")
+    report.add_argument("--format", default="table")
+    check = sub.add_parser("check")
+    check.add_argument("trunk")
+    args = parser.parse_args(["check", "ic-rtd-02"])
+    print(args.command, args.trunk)
+  answer: "check ic-rtd-02"
+  options:
+    - "check ic-rtd-02"
+    - "None ic-rtd-02"
+    - "report table"
+    - "check None"
+  explain: >-
+    Each subcommand has its own parser and arguments, like git commit and git push.
+    dest="command" stores which one was used, so main() can choose what to run.
+  tags: [argparse, subcommands]
+
+- id: cli-predict-nagios
+  type: predict
+  topic: cli
+  level: 2
+  prompt: What does this print?
+  code: |
+    NAMES = {0: "OK", 1: "WARNING", 2: "CRITICAL"}
+
+    def status(asr):
+        if asr < 0.5:
+            return 2
+        if asr < 0.8:
+            return 1
+        return 0
+
+    print([NAMES[status(a)] for a in (0.81, 0.59, 0.4)])
+  answer: "['OK', 'WARNING', 'CRITICAL']"
+  options:
+    - "['OK', 'WARNING', 'CRITICAL']"
+    - "['CRITICAL', 'WARNING', 'OK']"
+    - "['OK', 'OK', 'WARNING']"
+    - "['WARNING', 'WARNING', 'CRITICAL']"
+  explain: >-
+    Monitoring tools like Nagios and Icinga read the exit code of a check: 0 OK,
+    1 WARNING, 2 CRITICAL, 3 UNKNOWN. The script's job is to pick the right number.
+  tags: [exit-code, nagios]
+
+- id: cli-mcq-exit-meaning
+  type: mcq
+  topic: cli
+  level: 1
+  prompt: A Nagios check script ends with sys.exit(2). What does the monitoring show?
+  options:
+    - CRITICAL
+    - WARNING
+    - OK
+    - UNKNOWN
+  correct: 0
+  explain: >-
+    0 = OK, 1 = WARNING, 2 = CRITICAL, 3 = UNKNOWN. Outside monitoring, any non-zero
+    exit code just means "something went wrong", and shells and CI stop on it.
+  tags: [exit-code, nagios]
+
+- id: cli-mcq-parse-args-list
+  type: mcq
+  topic: cli
+  level: 2
+  prompt: Why does a test call parser.parse_args(["check", "ic-rtd-02"]) with a list?
+  options:
+    - The test passes the arguments directly, without touching sys.argv
+    - parse_args only accepts lists
+    - It makes argparse skip type checks
+    - It is faster than the command line
+  correct: 0
+  explain: >-
+    parse_args() with no list reads sys.argv. Writing main(argv=None) and passing argv
+    on to parse_args(argv) lets tests call main(["check", "x"]), while the real script
+    still uses the command line.
+  tags: [argparse, testing]
+
+- id: cli-mcq-subparsers-required
+  type: mcq
+  topic: cli
+  level: 2
+  prompt: What does required=True do in add_subparsers(dest="command", required=True)?
+  options:
+    - Running with no subcommand is an error (exit 2), not command=None
+    - Every subcommand must have at least one argument
+    - All subcommands run one after another
+    - The user must type --command
+  correct: 0
+  explain: >-
+    Without required=True, `voicekit` alone parses fine with command=None, and your
+    code has to handle that case. With it, argparse shows the usage and exits with 2.
+  tags: [argparse, subcommands]
+
+- id: cli-fill-type-float
+  type: fill
+  topic: cli
+  level: 1
+  prompt: Make args.threshold a float.
+  code: |
+    import argparse
+    parser = argparse.ArgumentParser(prog="asrcheck")
+    parser.add_argument("--threshold", ____=float, default=0.65)
+    args = parser.parse_args(["--threshold", "0.6"])
+    print(args.threshold < 0.65)
+  blanks:
+    - answer: type
+      options: [type, cast, kind, convert]
+  expected_output: "True"
+  explain: >-
+    type= can be any function that takes a string: float, int, or your own. If it
+    raises ValueError, argparse turns that into a clean usage error.
+  tags: [argparse, type]
+
+- id: cli-fill-store-true
+  type: fill
+  topic: cli
+  level: 2
+  prompt: Make --verbose an on/off flag.
+  code: |
+    import argparse
+    parser = argparse.ArgumentParser(prog="asrcheck")
+    parser.add_argument("--verbose", action="____")
+    print(parser.parse_args(["--verbose"]).verbose,
+          parser.parse_args([]).verbose)
+  blanks:
+    - answer: store_true
+      options: [store_true, "true", flag, store]
+  expected_output: "True False"
+  explain: >-
+    action="store_true" takes no value: present means True, absent means False. With
+    the default action ("store"), --verbose would need a value after it.
+  tags: [argparse, flag]
+
+- id: cli-fill-dest
+  type: fill
+  topic: cli
+  level: 2
+  prompt: Store the chosen subcommand in args.command.
+  code: |
+    import argparse
+    parser = argparse.ArgumentParser(prog="voicekit")
+    sub = parser.add_subparsers(____="command", required=True)
+    sub.add_parser("report")
+    sub.add_parser("check")
+    print(parser.parse_args(["report"]).command)
+  blanks:
+    - answer: dest
+      options: [dest, name, title, key]
+  expected_output: "report"
+  explain: >-
+    dest is the attribute name where argparse puts the value. Without it, there is no
+    easy way to see which subcommand ran.
+  tags: [argparse, subcommands]
+
+- id: cli-spotbug-string-threshold
+  type: spot_bug
+  topic: cli
+  level: 2
+  prompt: This should print "low ASR". Tap the line with the bug.
+  code: |
+    import argparse
+    parser = argparse.ArgumentParser(prog="asrcheck")
+    parser.add_argument("--asr")
+    args = parser.parse_args(["--asr", "0.4"])
+    if args.asr < 0.5:
+        print("low ASR")
+  bug_line: 3
+  fixed_code: |
+    import argparse
+    parser = argparse.ArgumentParser(prog="asrcheck")
+    parser.add_argument("--asr", type=float)
+    args = parser.parse_args(["--asr", "0.4"])
+    if args.asr < 0.5:
+        print("low ASR")
+  expected_output: "low ASR"
+  explain: >-
+    Without type=float, args.asr is the string "0.4", and "0.4" < 0.5 raises
+    TypeError. Let argparse convert it, so bad input gets a proper error message.
+  tags: [argparse, type]
+
+- id: cli-spotbug-nagios-code
+  type: spot_bug
+  topic: cli
+  level: 2
+  prompt: 0.59 should be WARNING (1). Tap the line with the bug.
+  code: |
+    def status(asr):
+        if asr < 0.5:
+            return 2
+        if asr < 0.8:
+            return 2
+        return 0
+
+    print([status(a) for a in (0.81, 0.59, 0.4)])
+  bug_line: 5
+  fixed_code: |
+    def status(asr):
+        if asr < 0.5:
+            return 2
+        if asr < 0.8:
+            return 1
+        return 0
+
+    print([status(a) for a in (0.81, 0.59, 0.4)])
+  expected_output: "[0, 1, 2]"
+  explain: >-
+    1 means WARNING and 2 CRITICAL. A wrong code pages the on-call engineer at night
+    for a warning, so test each band: above 0.8, between, below 0.5.
+  tags: [exit-code, nagios]
+
+- id: cli-spotbug-ignored-argv
+  type: spot_bug
+  topic: cli
+  level: 3
+  prompt: main(["ic-rtd-02"]) should print the trunk. Tap the line with the bug.
+  code: |
+    import argparse
+
+    def main(argv=None):
+        parser = argparse.ArgumentParser(prog="asrcheck")
+        parser.add_argument("trunk")
+        args = parser.parse_args()
+        print("checking", args.trunk)
+        return 0
+
+    main(["ic-rtd-02"])
+  bug_line: 6
+  fixed_code: |
+    import argparse
+
+    def main(argv=None):
+        parser = argparse.ArgumentParser(prog="asrcheck")
+        parser.add_argument("trunk")
+        args = parser.parse_args(argv)
+        print("checking", args.trunk)
+        return 0
+
+    main(["ic-rtd-02"])
+  expected_output: "checking ic-rtd-02"
+  explain: >-
+    parse_args() with nothing reads sys.argv, which here has no trunk, so argparse
+    exits with 2. parse_args(argv) uses the list from the test, and still reads
+    sys.argv when argv is None.
+  tags: [argparse, testing]
+
+- id: cli-parsons-option
+  type: parsons
+  topic: cli
+  level: 1
+  prompt: Put the lines in order so it prints 60.0.
+  setup: |
+    import argparse
+  lines:
+    - "parser = argparse.ArgumentParser(prog=\"asrcheck\")"
+    - "parser.add_argument(\"--min\", type=float, default=0.5)"
+    - "args = parser.parse_args([\"--min\", \"0.6\"])"
+    - "print(args.min * 100)"
+  distractors:
+    - "parser.add_argument(\"--min\", default=0.5)"
+  expected_output: "60.0"
+  explain: >-
+    Build the parser, add the options, then parse. Without type=float, "0.6" * 100
+    would repeat the string 100 times.
+  tags: [argparse]
+
+- id: cli-parsons-main-exit
+  type: parsons
+  topic: cli
+  level: 2
+  prompt: Put the lines in order so main returns the exit code instead of exiting.
+  setup: |
+    import argparse
+  lines:
+    - "def main(argv):"
+    - "    p = argparse.ArgumentParser(prog=\"asrcheck\")"
+    - "    p.add_argument(\"asr\", type=float)"
+    - "    args = p.parse_args(argv)"
+    - "    return 2 if args.asr < 0.5 else 0"
+    - "code = main([\"0.4\"])"
+    - "print(\"exit code\", code)"
+  distractors:
+    - "    args = p.parse_args()"
+  expected_output: "exit code 2"
+  explain: >-
+    main returns a number, and the script ends with sys.exit(main()). Tests call
+    main([...]) and check the number, without the program really exiting.
+  tags: [argparse, exit-code]
+
+- id: cli-parsons-subcommands
+  type: parsons
+  topic: cli
+  level: 3
+  prompt: Put the lines in order to add a "check" subcommand with a trunk argument.
+  setup: |
+    import argparse
+    parser = argparse.ArgumentParser(prog="voicekit")
+  lines:
+    - "sub = parser.add_subparsers(dest=\"command\", required=True)"
+    - "check = sub.add_parser(\"check\")"
+    - "check.add_argument(\"trunk\")"
+    - "args = parser.parse_args([\"check\", \"ic-rtd-02\"])"
+    - "print(args.command, args.trunk)"
+  distractors:
+    - "check.add_argument(\"--trunk\")"
+  expected_output: "check ic-rtd-02"
+  explain: >-
+    add_subparsers gives an object that makes one parser per subcommand. Each
+    subcommand gets its own arguments. With --trunk, "ic-rtd-02" would not be
+    accepted as a positional argument.
+  tags: [argparse, subcommands]
+
+- id: cli-write-build-parser
+  type: write
+  topic: cli
+  level: 2
+  prompt: "Build the parser: positional trunk, --threshold (float, default 0.65), --format (table or json, default table)."
+  starter: |
+    import argparse
+
+    def build_parser():
+        parser = argparse.ArgumentParser(prog="asrcheck")
+        parser.add_argument("trunk")
+        return parser
+
+    print(build_parser().parse_args(["ic-rtd-02"]))
+  tests: |
+    a = build_parser().parse_args(["ic-rtd-02"])
+    check(lambda: (a.trunk, a.threshold, a.format) == ("ic-rtd-02", 0.65, "table"), "defaults: threshold 0.65, format table")
+    b = build_parser().parse_args(["x", "--threshold", "0.5", "--format", "json"])
+    check(lambda: b.threshold == 0.5 and b.format == "json", "--threshold 0.5 becomes the float 0.5")
+    try:
+        build_parser().parse_args(["x", "--format", "csv"])
+        code = None
+    except SystemExit as e:
+        code = e.code
+    check(lambda: code == 2, "--format csv must be rejected (exit code 2)")
+  hint: >-
+    Add parser.add_argument("--threshold", type=float, default=0.65) and
+    parser.add_argument("--format", choices=["table", "json"], default="table").
+  solution: |
+    import argparse
+
+    def build_parser():
+        parser = argparse.ArgumentParser(prog="asrcheck")
+        parser.add_argument("trunk")
+        parser.add_argument("--threshold", type=float,
+                            default=0.65)
+        parser.add_argument("--format", default="table",
+                            choices=["table", "json"])
+        return parser
+
+    print(build_parser().parse_args(["ic-rtd-02"]))
+  explain: >-
+    A build_parser() function lets tests check the parser on its own. type and
+    choices move input checks into argparse, which gives users clear errors for free.
+  tags: [argparse, choices, type]
+
+- id: cli-write-check-main
+  type: write
+  topic: cli
+  level: 3
+  prompt: "main(argv) reads --asr (float, required). Print \"OK\", \"WARNING\" or \"CRITICAL\" with the ASR, and return 0, 1 or 2 (below 0.8 warn, below 0.5 crit)."
+  starter: |
+    import argparse
+
+    def main(argv=None):
+        parser = argparse.ArgumentParser(prog="asrcheck")
+        return 3
+
+    code = main(["--asr", "0.59"])
+    print("exit code", code)
+  tests: |
+    import io, contextlib
+    def run(argv):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = main(argv)
+        return code, out.getvalue()
+    check(lambda: run(["--asr", "0.81"])[0] == 0, "--asr 0.81 returns 0 (OK)")
+    check(lambda: run(["--asr", "0.59"])[0] == 1, "--asr 0.59 returns 1 (WARNING)")
+    check(lambda: run(["--asr", "0.4"])[0] == 2, "--asr 0.4 returns 2 (CRITICAL)")
+    check(lambda: run(["--asr", "0.4"])[1].startswith("CRITICAL"), "the printed line starts with CRITICAL")
+    try:
+        main([])
+        code = None
+    except SystemExit as e:
+        code = e.code
+    check(lambda: code == 2, "--asr is required: main([]) exits with 2")
+  hint: >-
+    parser.add_argument("--asr", type=float, required=True); args =
+    parser.parse_args(argv). Pick code and name with if/elif, print(f"{name} asr=...")
+    and return code.
+  solution: |
+    import argparse
+
+    NAMES = {0: "OK", 1: "WARNING", 2: "CRITICAL"}
+
+    def main(argv=None):
+        parser = argparse.ArgumentParser(prog="asrcheck")
+        parser.add_argument("--asr", type=float, required=True)
+        args = parser.parse_args(argv)
+        if args.asr < 0.5:
+            code = 2
+        elif args.asr < 0.8:
+            code = 1
+        else:
+            code = 0
+        print(f"{NAMES[code]} asr={args.asr:.0%}")
+        return code
+
+    code = main(["--asr", "0.59"])
+    print("exit code", code)
+  explain: >-
+    This is a complete monitoring check. The real script ends with
+    `raise SystemExit(main())`, and Nagios reads the exit code and the first line of
+    output.
+  tags: [argparse, exit-code, nagios]
