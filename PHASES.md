@@ -49,10 +49,10 @@ Goal: the four tap-friendly card types work with real content.
 **Done when:** a 7-day simulation test (fake clock) shows sensible queues, and a real session on the phone takes about 10 minutes.
 
 ## Phase 5: The full card bank
-- [ ] Author the remaining **core** cards following CONTENT.md, topic by topic (about 20 per topic), in this order: dicts, unpack, iter, functions, classes, dunders, dataclasses, text, errors, systems, cli, setup.
-- [ ] Then author the **domain decks** (about 15 each): net, web, security, data, automation, concurrency. Follow the offline rule and the defensive-security rule in CONTENT.md. `net` and `security` already have seed cards.
-- [ ] After each topic: `python3 scripts/validate_content.py --topic <t>` must report 0 problems. Commit per topic.
-- [ ] Show Bati 3 sample cards per topic in the phase summary so he can veto the style early. Author core topics before domain decks, since decks build on core features.
+- [x] Author the remaining **core** cards following CONTENT.md, topic by topic (about 20 per topic), in this order: dicts, unpack, iter, functions, classes, dunders, dataclasses, text, errors, systems, cli, setup.
+- [x] Then author the **domain decks** (about 15 each): net, web, security, data, automation, concurrency. Follow the offline rule and the defensive-security rule in CONTENT.md. `net` and `security` already have seed cards.
+- [x] After each topic: `python3 scripts/validate_content.py --topic <t>` must report 0 problems. Commit per topic.
+- [x] Show Bati 3 sample cards per topic in the phase summary so he can veto the style early. Author core topics before domain decks, since decks build on core features.
 **Done when:** about 330 cards (~240 core + ~90 deck), 0 validation problems, about 70% tap-only.
 
 ## Phase 6: Projects, Playground, export
