@@ -1,0 +1,594 @@
+# DUNDERS: which syntax calls which special method (about 20 cards).
+- id: dunders-predict-len-str
+  type: predict
+  topic: dunders
+  level: 1
+  prompt: What does this print?
+  code: |
+    class TrunkGroup:
+        def __init__(self, names):
+            self.names = names
+
+        def __len__(self):
+            return len(self.names)
+
+        def __str__(self):
+            return f"group of {len(self)}"
+
+    g = TrunkGroup(["ic-ams-01", "ic-rtd-02"])
+    print(len(g), g)
+  answer: "2 group of 2"
+  explain: >-
+    len(g) calls g.__len__(), and print(g) calls g.__str__(). You don't call dunder
+    methods yourself; the syntax calls them for you.
+  tags: [len, str]
+
+- id: dunders-predict-repr-fallback
+  type: predict
+  topic: dunders
+  level: 2
+  prompt: What does this print?
+  code: |
+    class Trunk:
+        def __init__(self, name):
+            self.name = name
+
+        def __repr__(self):
+            return f"Trunk({self.name!r})"
+
+    t = Trunk("ic-ams-01")
+    print(t)
+    print([t])
+  answer: |-
+    Trunk('ic-ams-01')
+    [Trunk('ic-ams-01')]
+  options:
+    - "Trunk('ic-ams-01')\n[Trunk('ic-ams-01')]"
+    - "Trunk(ic-ams-01)\n[Trunk(ic-ams-01)]"
+    - "ic-ams-01\n['ic-ams-01']"
+    - "Trunk('ic-ams-01')\n['Trunk']"
+  explain: >-
+    With no __str__, print uses __repr__. A list always shows its items with repr.
+    !r puts quotes around the string, so the repr looks like code you could paste.
+  tags: [repr, str]
+
+- id: dunders-predict-eq
+  type: predict
+  topic: dunders
+  level: 2
+  prompt: What does this print?
+  code: |
+    class SipCode:
+        def __init__(self, value):
+            self.value = value
+
+        def __eq__(self, other):
+            return self.value == other.value
+
+    a, b = SipCode(486), SipCode(486)
+    print(a == b, a is b)
+  answer: "True False"
+  options:
+    - "True False"
+    - "False False"
+    - "True True"
+    - "False True"
+  explain: >-
+    == calls __eq__, so it compares the values: True. `is` checks if both names point
+    to the same object, and these are two objects. Without __eq__, == would also
+    compare identity and give False.
+  tags: [eq, is]
+
+- id: dunders-predict-lt-sorted
+  type: predict
+  topic: dunders
+  level: 2
+  prompt: What does this print?
+  code: |
+    class Call:
+        def __init__(self, call_id, ms):
+            self.call_id = call_id
+            self.ms = ms
+
+        def __lt__(self, other):
+            return self.ms < other.ms
+
+    calls = [Call("c1004", 3087), Call("c1000", 445),
+             Call("c1003", 554)]
+    print([c.call_id for c in sorted(calls)])
+  answer: "['c1000', 'c1003', 'c1004']"
+  explain: >-
+    sorted() compares items with <, which calls __lt__. Here a call is "less" when it
+    is faster, so the fastest comes first. Without __lt__, sorted would raise
+    TypeError.
+  tags: [lt, sorted]
+
+- id: dunders-predict-add
+  type: predict
+  topic: dunders
+  level: 2
+  prompt: What does this print?
+  code: |
+    class Stats:
+        def __init__(self, calls, ok):
+            self.calls, self.ok = calls, ok
+
+        def __add__(self, other):
+            return Stats(self.calls + other.calls,
+                         self.ok + other.ok)
+
+    ams = Stats(17, 10)
+    rtd = Stats(15, 6)
+    total = ams + rtd
+    print(total.calls, total.ok)
+  answer: "32 16"
+  explain: >-
+    a + b calls a.__add__(b). It returns a new Stats object and leaves ams and rtd as
+    they were, like + on numbers.
+  tags: [add]
+
+- id: dunders-predict-with-exit
+  type: predict
+  topic: dunders
+  level: 3
+  prompt: What does this print?
+  code: |
+    class Session:
+        def __enter__(self):
+            print("open")
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            print("close")
+            return False
+
+    try:
+        with Session():
+            raise ValueError("bad reply")
+    except ValueError:
+        print("caught")
+  answer: |-
+    open
+    close
+    caught
+  options:
+    - "open\nclose\ncaught"
+    - "open\ncaught"
+    - "open\ncaught\nclose"
+    - "open\nclose"
+  explain: >-
+    __exit__ always runs when the with block ends, also on an error, so "close" comes
+    before "caught". Returning False means "don't hide the error", so it reaches the
+    except.
+  tags: [with, exit]
+
+- id: dunders-mcq-contains
+  type: mcq
+  topic: dunders
+  level: 1
+  prompt: Which method does `"ic-ams-01" in group` call?
+  options:
+    - __contains__
+    - __in__
+    - __has__
+    - __getitem__ only
+  correct: 0
+  explain: >-
+    `in` calls __contains__. If a class has no __contains__, Python falls back to
+    looping with __iter__ and comparing each item, which is slower.
+  tags: [contains]
+
+- id: dunders-mcq-call
+  type: mcq
+  topic: dunders
+  level: 2
+  prompt: check is an object, not a function. What makes check(3087) work?
+  code: |
+    class SlowCheck:
+        def __init__(self, limit):
+            self.limit = limit
+
+        def __call__(self, ms):
+            return ms > self.limit
+
+    check = SlowCheck(1000)
+    check(3087)
+  options:
+    - __call__
+    - __init__
+    - __invoke__
+    - __run__
+  correct: 0
+  explain: >-
+    obj(...) calls obj.__call__(...). An object with __call__ can be used anywhere a
+    function is expected, and it can keep settings like limit.
+  tags: [call]
+
+- id: dunders-mcq-exit-true
+  type: mcq
+  topic: dunders
+  level: 3
+  prompt: An error happens inside a with block, and __exit__ returns True. What happens?
+  options:
+    - The error is hidden; the code after the with block runs
+    - The error is raised again after __exit__
+    - The with block runs again
+    - Python prints a warning and stops
+  correct: 0
+  explain: >-
+    A true return value from __exit__ tells Python the error was handled. That's rarely
+    what you want. Return False (or None) so errors still reach the caller.
+  tags: [with, exit]
+
+- id: dunders-fill-getitem
+  type: fill
+  topic: dunders
+  level: 2
+  prompt: Make group["ic-rtd-02"] work.
+  code: |
+    class TrunkGroup:
+        def __init__(self, asr):
+            self.asr = asr
+
+        def ____(self, name):
+            return self.asr[name]
+
+    group = TrunkGroup({"ic-ams-01": 0.59, "ic-rtd-02": 0.4})
+    print(group["ic-rtd-02"])
+  blanks:
+    - answer: __getitem__
+      options: [__getitem__, __get__, __index__, __item__]
+  expected_output: "0.4"
+  explain: >-
+    obj[key] calls obj.__getitem__(key). The same method serves lists (an int index)
+    and dicts (any key).
+  tags: [getitem]
+
+- id: dunders-fill-iter
+  type: fill
+  topic: dunders
+  level: 2
+  prompt: Make a for loop over the group work.
+  code: |
+    class PodGroup:
+        def __init__(self, pods):
+            self.pods = pods
+
+        def ____(self):
+            return iter(self.pods)
+
+    for pod in PodGroup(["sip-proxy-x2k9p", "call-api-m2xqp"]):
+        print(pod)
+  blanks:
+    - answer: __iter__
+      options: [__iter__, __next__, __for__, __loop__]
+  expected_output: |-
+    sip-proxy-x2k9p
+    call-api-m2xqp
+  explain: >-
+    for calls __iter__ once to get an iterator, then __next__ on that iterator until
+    it stops. Returning iter(self.pods) hands that job to the list.
+  tags: [iter]
+
+- id: dunders-fill-repr-r
+  type: fill
+  topic: dunders
+  level: 1
+  prompt: Show the name with quotes in the repr.
+  code: |
+    class Trunk:
+        def __init__(self, name):
+            self.name = name
+
+        def __repr__(self):
+            return f"Trunk(name={self.name____})"
+
+    print(Trunk("ic-ams-01"))
+  blanks:
+    - answer: "!r"
+      options: ["!r", "!s", ":r", ".r"]
+  expected_output: "Trunk(name='ic-ams-01')"
+  explain: >-
+    !r in an f-string uses repr() of the value, which adds quotes around strings. A
+    good __repr__ shows the type and the values clearly, for logs and debugging.
+  tags: [repr, f-string]
+
+- id: dunders-spotbug-str-print
+  type: spot_bug
+  topic: dunders
+  level: 1
+  prompt: This should print "sbc-ic-01 (2 alarms)". Tap the line with the bug.
+  code: |
+    class Sbc:
+        def __init__(self, name, alarms):
+            self.name = name
+            self.alarms = alarms
+
+        def __str__(self):
+            print(f"{self.name} ({self.alarms} alarms)")
+
+    print(Sbc("sbc-ic-01", 2))
+  bug_line: 7
+  fixed_code: |
+    class Sbc:
+        def __init__(self, name, alarms):
+            self.name = name
+            self.alarms = alarms
+
+        def __str__(self):
+            return f"{self.name} ({self.alarms} alarms)"
+
+    print(Sbc("sbc-ic-01", 2))
+  expected_output: "sbc-ic-01 (2 alarms)"
+  explain: >-
+    __str__ must return the text, not print it. Here it returns None, and Python
+    raises "TypeError: __str__ returned non-string".
+  tags: [str]
+
+- id: dunders-spotbug-lt-field
+  type: spot_bug
+  topic: dunders
+  level: 2
+  prompt: Calls should sort from fastest to slowest. Tap the line with the bug.
+  code: |
+    class Call:
+        def __init__(self, call_id, ms):
+            self.call_id = call_id
+            self.ms = ms
+
+        def __lt__(self, other):
+            return self.call_id < other.call_id
+
+    calls = [Call("c1013", 3014), Call("c1003", 554),
+             Call("c1009", 403)]
+    print([c.ms for c in sorted(calls)])
+  bug_line: 7
+  fixed_code: |
+    class Call:
+        def __init__(self, call_id, ms):
+            self.call_id = call_id
+            self.ms = ms
+
+        def __lt__(self, other):
+            return self.ms < other.ms
+
+    calls = [Call("c1013", 3014), Call("c1003", 554),
+             Call("c1009", 403)]
+    print([c.ms for c in sorted(calls)])
+  expected_output: "[403, 554, 3014]"
+  explain: >-
+    sorted() uses whatever __lt__ compares. Comparing call ids sorts by id. For one
+    sort order only, sorted(calls, key=lambda c: c.ms) is often simpler than __lt__.
+  tags: [lt, sorted]
+
+- id: dunders-spotbug-exit-hides
+  type: spot_bug
+  topic: dunders
+  level: 3
+  prompt: The error should reach the except block. Tap the line with the bug.
+  code: |
+    class Session:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            print("close")
+            return True
+
+    try:
+        with Session():
+            raise TimeoutError("no answer")
+        print("all good")
+    except TimeoutError:
+        print("timeout seen")
+  bug_line: 7
+  fixed_code: |
+    class Session:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            print("close")
+            return False
+
+    try:
+        with Session():
+            raise TimeoutError("no answer")
+        print("all good")
+    except TimeoutError:
+        print("timeout seen")
+  expected_output: |-
+    close
+    timeout seen
+  explain: >-
+    return True from __exit__ hides the error, so the program printed "all good"
+    after a timeout. return False lets the error go on to the except block, after
+    "close" has run.
+  tags: [with, exit]
+
+- id: dunders-parsons-session
+  type: parsons
+  topic: dunders
+  level: 3
+  prompt: Put the lines in order so the session closes and the timeout is reported.
+  setup: |
+    class Session:
+        def __init__(self, sbc):
+            self.sbc = sbc
+
+        def __enter__(self):
+            print("connect", self.sbc)
+            return self
+
+        def send(self, method):
+            print("send", method)
+
+        def __exit__(self, exc_type, exc, tb):
+            print("disconnect")
+            return False
+  lines:
+    - "try:"
+    - "    with Session(\"sbc-ic-01\") as s:"
+    - "        s.send(\"INVITE\")"
+    - "        raise TimeoutError(\"no answer\")"
+    - "except TimeoutError as err:"
+    - "    print(\"failed:\", err)"
+  distractors:
+    - "    with Session(\"sbc-ic-01\"):"
+  expected_output: |-
+    connect sbc-ic-01
+    send INVITE
+    disconnect
+    failed: no answer
+  explain: >-
+    `as s` gets whatever __enter__ returns, here the session itself. Without `as s`,
+    s.send would raise NameError. "disconnect" prints before "failed": __exit__ runs
+    first, then the error reaches except.
+  tags: [with, enter, exit]
+
+- id: dunders-parsons-len
+  type: parsons
+  topic: dunders
+  level: 2
+  prompt: Put the lines in order so len() works on a PodGroup.
+  setup: |
+    class Group:
+        def __init__(self, pods):
+            self.pods = pods
+  lines:
+    - "class PodGroup(Group):"
+    - "    def __len__(self):"
+    - "        return len(self.pods)"
+    - "g = PodGroup([\"sip-a\", \"sip-b\", \"cdr-1\"])"
+    - "print(len(g), bool(g))"
+  distractors:
+    - "    def len(self):"
+  expected_output: "3 True"
+  explain: >-
+    len(g) only looks for __len__; a method called len is ignored. bool(g) also uses
+    __len__ when there is no __bool__: an empty group counts as False.
+  tags: [len, bool]
+
+- id: dunders-parsons-call
+  type: parsons
+  topic: dunders
+  level: 2
+  prompt: Put the lines in order so a SlowCheck object can be called like a function.
+  setup: |
+    class Check:
+        def __init__(self, limit):
+            self.limit = limit
+  lines:
+    - "class SlowCheck(Check):"
+    - "    def __call__(self, ms):"
+    - "        return ms > self.limit"
+    - "slow = SlowCheck(1000)"
+    - "print([ms for ms in (445, 3087) if slow(ms)])"
+  distractors:
+    - "        return ms > limit"
+  expected_output: "[3087]"
+  explain: >-
+    slow(ms) runs slow.__call__(ms). The limit lives on the object, so it is
+    self.limit; a bare limit is an unknown name. A closure from the functions topic
+    does the same job.
+  tags: [call]
+
+- id: dunders-write-trunk-group
+  type: write
+  topic: dunders
+  level: 2
+  prompt: Give TrunkGroup len(), group[name], `name in group`, and a for loop over the names in sorted order.
+  starter: |
+    class TrunkGroup:
+        def __init__(self, asr):
+            self.asr = dict(asr)
+
+    group = TrunkGroup({"ic-rtd-02": 0.4, "ic-ams-01": 0.59})
+    print(len(group), group["ic-rtd-02"], list(group))
+  tests: |
+    g = TrunkGroup({"ic-rtd-02": 0.4, "ic-ams-01": 0.59})
+    check(lambda: len(g) == 2, "len(group) is 2")
+    check(lambda: g["ic-rtd-02"] == 0.4, "group['ic-rtd-02'] is 0.4")
+    check(lambda: "ic-ams-01" in g and "biz-trunk-07" not in g, "`in` checks the names")
+    check(lambda: list(g) == ["ic-ams-01", "ic-rtd-02"], "a loop gives the names in sorted order")
+  hint: >-
+    Add __len__ (len of the dict), __getitem__(self, name), __contains__(self, name)
+    and __iter__, which can return iter(sorted(self.asr)).
+  solution: |
+    class TrunkGroup:
+        def __init__(self, asr):
+            self.asr = dict(asr)
+
+        def __len__(self):
+            return len(self.asr)
+
+        def __getitem__(self, name):
+            return self.asr[name]
+
+        def __contains__(self, name):
+            return name in self.asr
+
+        def __iter__(self):
+            return iter(sorted(self.asr))
+
+    group = TrunkGroup({"ic-rtd-02": 0.4, "ic-ams-01": 0.59})
+    print(len(group), group["ic-rtd-02"], list(group))
+  explain: >-
+    Four small methods make your class behave like a built-in collection, so code
+    that uses it can stay plain Python: len(), [], in, for.
+  tags: [len, getitem, contains, iter]
+
+- id: dunders-write-maintenance
+  type: write
+  topic: dunders
+  level: 3
+  prompt: "Write the Maintenance context manager: ready is False inside the with block, and True again after, even on an error."
+  starter: |
+    class Maintenance:
+        def __init__(self, pod):
+            self.pod = pod
+
+    pod = {"name": "call-api-m2xqp", "ready": True}
+    with Maintenance(pod):
+        print("inside:", pod["ready"])
+    print("after:", pod["ready"])
+  tests: |
+    p = {"name": "x", "ready": True}
+    seen = []
+    with Maintenance(p):
+        seen.append(p["ready"])
+    check(lambda: seen == [False] and p["ready"] is True, "ready is False inside and True after")
+    try:
+        with Maintenance(p):
+            raise RuntimeError("restart failed")
+    except RuntimeError:
+        passed_on = True
+    else:
+        passed_on = False
+    check(lambda: p["ready"] is True, "ready is True again after an error")
+    check(lambda: passed_on, "the error must still reach the caller (return False)")
+  hint: >-
+    __enter__ sets self.pod["ready"] = False and returns self. __exit__(self,
+    exc_type, exc, tb) sets it back to True and returns False.
+  solution: |
+    class Maintenance:
+        def __init__(self, pod):
+            self.pod = pod
+
+        def __enter__(self):
+            self.pod["ready"] = False
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            self.pod["ready"] = True
+            return False
+
+    pod = {"name": "call-api-m2xqp", "ready": True}
+    with Maintenance(pod):
+        print("inside:", pod["ready"])
+    print("after:", pod["ready"])
+  explain: >-
+    with guarantees the clean-up in __exit__, like try/finally. That's how files,
+    locks and connections are closed safely. contextlib.contextmanager can write the
+    same thing as a generator.
+  tags: [with, enter, exit]
