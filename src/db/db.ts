@@ -2,6 +2,8 @@ import { Dexie, type EntityTable } from "dexie";
 import type { Result } from "../cards/outcome.ts";
 import { dayKey, startOfDay } from "../srs/day.ts";
 import type { FsrsCard, Grade } from "../srs/scheduler.ts";
+import type { Backup, BackupInput } from "./backup.ts";
+import { BACKUP_VERSION } from "./backupVersion.ts";
 
 // Schema v1 from ARCHITECTURE.md. Changing a store's indexes later needs db.version(2)
 // and a migration; adding fields to rows does not.
@@ -20,6 +22,8 @@ export type ReviewLogRow = {
   mode: "daily" | "practice";
   /** True for the first review of a new card. */
   isNew: boolean;
+  /** FSRS state before this answer (0 new, 1 learning, 2 review, 3 relearning). */
+  stateBefore?: number;
 };
 
 export type AttemptRow = {
@@ -193,6 +197,12 @@ export async function practisedDays(): Promise<Set<string>> {
   return new Set([...logs, ...attempts].map((row) => row.day));
 }
 
+/** Everything the Stats screen needs: the review log, and the day of every answer. */
+export async function statsData() {
+  const [logs, attempts] = await Promise.all([db.reviewLog.toArray(), db.attempts.toArray()]);
+  return { logs, answeredDays: [...logs, ...attempts].map((row) => row.day) };
+}
+
 // --- session ---------------------------------------------------------------------------
 
 export type SessionResult = {
@@ -238,4 +248,67 @@ export async function requestPersistence(): Promise<boolean | null> {
   } catch {
     return null;
   }
+}
+
+// --- backup and reset ------------------------------------------------------------------
+
+/** Every table, ready for JSON.stringify. */
+export async function exportAll(now = new Date()): Promise<BackupInput> {
+  return db.transaction(
+    "r",
+    [db.reviewStates, db.reviewLog, db.attempts, db.projects, db.kv],
+    async () => ({
+      app: "pyreps" as const,
+      schemaVersion: BACKUP_VERSION,
+      exportedAt: now.toISOString(),
+      data: {
+        reviewStates: (await db.reviewStates.toArray()).map((row) => ({
+          ...row,
+          due: row.due.toISOString(),
+          last_review: row.last_review?.toISOString(),
+        })),
+        reviewLog: await db.reviewLog.toArray(),
+        attempts: await db.attempts.toArray(),
+        projects: await db.projects.toArray(),
+        kv: await db.kv.toArray(),
+      },
+    }),
+  );
+}
+
+/** Replaces everything on this phone with the backup, in one transaction. */
+export async function importAll(backup: Backup): Promise<void> {
+  const tables = [db.reviewStates, db.reviewLog, db.attempts, db.projects, db.kv];
+  await db.transaction("rw", tables, async () => {
+    await Promise.all(tables.map((table) => table.clear()));
+    const { data } = backup;
+    await db.reviewStates.bulkPut(data.reviewStates as unknown as ReviewStateRow[]);
+    await db.reviewLog.bulkPut(data.reviewLog as unknown as ReviewLogRow[]);
+    await db.attempts.bulkPut(data.attempts as unknown as AttemptRow[]);
+    await db.projects.bulkPut(data.projects as unknown as ProjectRow[]);
+    await db.kv.bulkPut(data.kv);
+  });
+}
+
+/** Keys kept by a reset: the user's settings, not their progress. */
+const KEEP_ON_RESET = new Set([SETTINGS_KEY, "persisted"]);
+
+/** Deletes all progress (reviews, practice, projects, drafts, session). Keeps settings. */
+export async function resetProgress(): Promise<void> {
+  await db.transaction(
+    "rw",
+    [db.reviewStates, db.reviewLog, db.attempts, db.projects, db.kv],
+    async () => {
+      await Promise.all([
+        db.reviewStates.clear(),
+        db.reviewLog.clear(),
+        db.attempts.clear(),
+        db.projects.clear(),
+      ]);
+      const keys = (await db.kv.toCollection().primaryKeys()).filter(
+        (key) => !KEEP_ON_RESET.has(key),
+      );
+      await db.kv.bulkDelete(keys);
+    },
+  );
 }

@@ -92,6 +92,7 @@ export default function SessionScreen() {
         ms: outcome.ms,
         mode: session.mode,
         isNew: before === undefined,
+        stateBefore: before?.state ?? 0,
         after: next.card,
       });
       setRated({ before, at, rating, logId, due: next.card.due });
