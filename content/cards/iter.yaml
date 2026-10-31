@@ -1,0 +1,470 @@
+# ITER: comprehensions, generators and the helpers around them (about 20 cards).
+- id: iter-predict-list-comp-if
+  type: predict
+  topic: iter
+  level: 1
+  prompt: What does this print?
+  code: |
+    codes = [200, 503, 486, 200, 500]
+    errors = [c for c in codes if c >= 500]
+    print(errors)
+  answer: "[503, 500]"
+  explain: >-
+    A list comprehension with `if` keeps only the items where the condition is true,
+    in their original order. It is the short form of a for loop with an if and
+    append.
+  tags: [comprehension]
+
+- id: iter-predict-set-comp
+  type: predict
+  topic: iter
+  level: 2
+  prompt: What does this print?
+  code: |
+    from voicelab import load_cdrs
+    rows = load_cdrs()
+    bad = {r["trunk"] for r in rows if r["sip_code"] == "503"}
+    print(sorted(bad), len(bad))
+  answer: "['ic-ams-01', 'ic-rtd-02'] 2"
+  options:
+    - "['ic-ams-01', 'ic-rtd-02'] 2"
+    - "['ic-ams-01', 'ic-rtd-02', 'ic-rtd-02', 'ic-rtd-02'] 4"
+    - "['ic-rtd-02'] 1"
+    - "{'ic-ams-01', 'ic-rtd-02'} 2"
+  explain: >-
+    Curly braces with a single expression build a set, so each trunk appears once,
+    even though there are 4 calls with 503. sorted() turns the set into a list, which
+    also makes the order fixed.
+  tags: [comprehension, set]
+
+- id: iter-predict-generator-exhausted
+  type: predict
+  topic: iter
+  level: 3
+  prompt: What does this print?
+  code: |
+    codes = [200, 503, 486, 200]
+    failed = (c for c in codes if c != 200)
+    print(list(failed))
+    print(list(failed))
+  answer: |-
+    [503, 486]
+    []
+  options:
+    - "[503, 486]\n[]"
+    - "[503, 486]\n[503, 486]"
+    - "<generator object>\n[503, 486]"
+    - "[503, 486]\nNone"
+  explain: >-
+    A generator gives each value once. The first list() uses it up, so the second
+    one gets nothing and returns []. If you need the values twice, build a list
+    instead: [c for c in codes if c != 200].
+  tags: [generator, exhausted]
+
+- id: iter-predict-zip-shortest
+  type: predict
+  topic: iter
+  level: 2
+  prompt: What does this print?
+  code: |
+    trunks = ["ic-ams-01", "ic-rtd-02", "biz-trunk-07"]
+    asr = [0.59, 0.4]
+    for t, a in zip(trunks, asr):
+        print(t, a)
+  answer: |-
+    ic-ams-01 0.59
+    ic-rtd-02 0.4
+  options:
+    - "ic-ams-01 0.59\nic-rtd-02 0.4"
+    - "ic-ams-01 0.59\nic-rtd-02 0.4\nbiz-trunk-07 None"
+    - "IndexError"
+    - "('ic-ams-01', 0.59)\n('ic-rtd-02', 0.4)"
+  explain: >-
+    zip stops at the shortest input, without an error. biz-trunk-07 has no partner,
+    so it is skipped. Use zip(a, b, strict=True) when the lengths must match.
+  tags: [zip]
+
+- id: iter-predict-enumerate-start
+  type: predict
+  topic: iter
+  level: 1
+  prompt: What does this print?
+  code: |
+    sbcs = ["sbc-ic-01", "sbc-ic-02"]
+    for i, sbc in enumerate(sbcs, start=1):
+        print(f"{i}. {sbc}")
+  answer: |
+    1. sbc-ic-01
+    2. sbc-ic-02
+  explain: >-
+    enumerate gives (number, item) pairs. It starts at 0 unless you pass start=1,
+    which is what humans expect in a numbered list.
+  tags: [enumerate]
+
+- id: iter-predict-generator-lazy
+  type: predict
+  topic: iter
+  level: 3
+  prompt: What does this print?
+  code: |
+    def first_word(lines):
+        for line in lines:
+            print("read", line)
+            yield line.split()[0]
+
+    words = first_word(["200 OK", "486 Busy"])
+    print("start")
+    print(next(words))
+  answer: |-
+    start
+    read 200 OK
+    200
+  options:
+    - "start\nread 200 OK\n200"
+    - "read 200 OK\nread 486 Busy\nstart\n200"
+    - "start\n200"
+    - "read 200 OK\nstart\n200"
+  explain: >-
+    Calling a generator function runs none of its body. The body only runs when you
+    ask for a value with next() or a loop, and it stops again at the first yield.
+    That is why "start" comes first and "486 Busy" is never read.
+  tags: [generator, yield, lazy]
+
+- id: iter-mcq-generator-memory
+  type: mcq
+  topic: iter
+  level: 2
+  prompt: >-
+    You add up the durations of 10 million CDRs. Why write
+    sum(r["duration"] for r in rows) instead of sum([r["duration"] for r in rows])?
+  options:
+    - The generator never builds a 10-million-item list in memory
+    - A generator is always faster than a list
+    - sum() can't take a list
+    - There is no difference at all
+  correct: 0
+  explain: >-
+    The generator gives one value at a time to sum(), so memory stays small. The list
+    version first builds the full list. Use a list when you need the values more than
+    once.
+  tags: [generator, memory]
+
+- id: iter-mcq-any-all
+  type: mcq
+  topic: iter
+  level: 1
+  prompt: Which of these is True?
+  code: |
+    codes = [200, 200, 503]
+  options:
+    - any(c >= 500 for c in codes)
+    - all(c == 200 for c in codes)
+    - all(c >= 500 for c in codes)
+    - any(c == 404 for c in codes)
+  correct: 0
+  explain: >-
+    any() is True if at least one item matches; all() only if every item matches.
+    One code is 503, so any(c >= 500 ...) is True, and all(c == 200 ...) is False.
+  tags: [any, all]
+
+- id: iter-mcq-islice
+  type: mcq
+  topic: iter
+  level: 2
+  prompt: Why use islice(lines, 2) here instead of lines[:2]?
+  code: |
+    from itertools import islice
+    lines = (line for line in open("data/sip.log"))
+    first = list(islice(lines, 2))
+  options:
+    - A generator has no [:2]; it raises TypeError
+    - islice is faster on lists
+    - lines[:2] would read the whole file first
+    - "[:2] would skip the first two lines"
+  correct: 0
+  explain: >-
+    Generators don't support indexing or slicing. islice takes the first n values
+    lazily and stops, so the rest of the file is never read.
+  tags: [islice, generator]
+
+- id: iter-fill-dict-comp-if
+  type: fill
+  topic: iter
+  level: 2
+  prompt: Keep only the trunks with more than 15 calls.
+  code: |
+    calls = {"ic-ams-01": 17, "ic-rtd-02": 15,
+             "biz-trunk-07": 16}
+    busy = {t: n for t, n in calls.items() ____ n > 15}
+    print(busy)
+  blanks:
+    - answer: if
+      options: [if, and, where, when]
+  expected_output: "{'ic-ams-01': 17, 'biz-trunk-07': 16}"
+  explain: >-
+    The filter goes at the end: {key: value for ... in ... if condition}. Python has
+    no `where` or `when` in comprehensions.
+  tags: [comprehension, dict]
+
+- id: iter-fill-sorted-key
+  type: fill
+  topic: iter
+  level: 2
+  prompt: Sort the calls by setup time, slowest first.
+  code: |
+    calls = [{"id": "c1003", "ms": 554},
+             {"id": "c1004", "ms": 3087},
+             {"id": "c1000", "ms": 445}]
+    slow = sorted(calls, ____=lambda c: c["ms"], reverse=True)
+    print([c["id"] for c in slow])
+  blanks:
+    - answer: key
+      options: [key, cmp, by, sort]
+  expected_output: "['c1004', 'c1003', 'c1000']"
+  explain: >-
+    key= takes a function that turns each item into the value to sort by. Python 3
+    has no cmp=. reverse=True puts the biggest first.
+  tags: [sorted, key, lambda]
+
+- id: iter-fill-max-key
+  type: fill
+  topic: iter
+  level: 2
+  prompt: Find the trunk with the most calls.
+  code: |
+    counts = {"ic-ams-01": 17, "ic-rtd-02": 15,
+              "biz-trunk-07": 16}
+    busiest = max(counts, key=counts.____)
+    print(busiest)
+  blanks:
+    - answer: get
+      options: [get, items, values, keys]
+  expected_output: "ic-ams-01"
+  explain: >-
+    max() over a dict looks at the keys. key=counts.get compares them by their
+    values, so you get the key with the biggest value. Without key=, max(counts)
+    compares the names.
+  tags: [max, key]
+
+- id: iter-spotbug-generator-reused
+  type: spot_bug
+  topic: iter
+  level: 3
+  prompt: This should print "29 48". Tap the line with the bug.
+  code: |
+    from voicelab import load_cdrs
+    codes = (r["sip_code"] for r in load_cdrs())
+    total = sum(1 for c in codes)
+    ok = sum(1 for c in codes if c == "200")
+    print(ok, total)
+  bug_line: 2
+  fixed_code: |
+    from voicelab import load_cdrs
+    codes = [r["sip_code"] for r in load_cdrs()]
+    total = sum(1 for c in codes)
+    ok = sum(1 for c in codes if c == "200")
+    print(ok, total)
+  expected_output: "29 48"
+  explain: >-
+    Round brackets made a generator, and counting `total` used it up, so `ok` saw
+    nothing and printed 0. Square brackets build a list that can be read many times.
+  tags: [generator, exhausted]
+
+- id: iter-spotbug-enumerate-start
+  type: spot_bug
+  topic: iter
+  level: 1
+  prompt: The list should be numbered 1, 2, 3. Tap the line with the bug.
+  code: |
+    trunks = ["ic-ams-01", "ic-rtd-02", "biz-trunk-07"]
+    for i, t in enumerate(trunks):
+        print(f"{i}. {t}")
+  bug_line: 2
+  fixed_code: |
+    trunks = ["ic-ams-01", "ic-rtd-02", "biz-trunk-07"]
+    for i, t in enumerate(trunks, start=1):
+        print(f"{i}. {t}")
+  expected_output: |
+    1. ic-ams-01
+    2. ic-rtd-02
+    3. biz-trunk-07
+  explain: >-
+    enumerate counts from 0 by default. Pass start=1 instead of writing i + 1 in the
+    print.
+  tags: [enumerate, off-by-one]
+
+- id: iter-spotbug-min-key
+  type: spot_bug
+  topic: iter
+  level: 2
+  prompt: This should print the trunk with the lowest ASR. Tap the line with the bug.
+  code: |
+    asr = {"ic-ams-01": 0.59, "ic-rtd-02": 0.4,
+           "biz-trunk-07": 0.81}
+    worst = min(asr)
+    print(worst)
+  bug_line: 3
+  fixed_code: |
+    asr = {"ic-ams-01": 0.59, "ic-rtd-02": 0.4,
+           "biz-trunk-07": 0.81}
+    worst = min(asr, key=asr.get)
+    print(worst)
+  expected_output: "ic-rtd-02"
+  explain: >-
+    min(asr) compares the keys, so it returned the first name in alphabetical order.
+    key=asr.get compares the values and still returns the key.
+  tags: [min, key]
+
+- id: iter-parsons-failed-generator
+  type: parsons
+  topic: iter
+  level: 2
+  prompt: Put the lines in order to print the first three failed call ids.
+  setup: |
+    from itertools import islice
+    from voicelab import load_cdrs
+    rows = load_cdrs()
+  lines:
+    - "def failed(rows):"
+    - "    for row in rows:"
+    - "        if row[\"sip_code\"] != \"200\":"
+    - "            yield row[\"call_id\"]"
+    - "first_three = list(islice(failed(rows), 3))"
+    - "print(first_three)"
+  distractors:
+    - "            return row[\"call_id\"]"
+  expected_output: "['c1001', 'c1004', 'c1009']"
+  explain: >-
+    yield makes failed() a generator that gives one id at a time. islice stops after
+    three, so the other rows are never checked. return would end the function at the
+    first failed call.
+  tags: [generator, yield, islice]
+
+- id: iter-parsons-zip-enumerate
+  type: parsons
+  topic: iter
+  level: 2
+  prompt: Put the lines in order to print the numbered trunks with an ASR under 50%.
+  setup: |
+    trunks = ["ic-ams-01", "ic-rtd-02", "biz-trunk-07"]
+    asr = [0.59, 0.4, 0.81]
+  lines:
+    - "for i, (t, a) in enumerate(zip(trunks, asr), start=1):"
+    - "    if a < 0.5:"
+    - "        print(f\"{i}. {t} is low: {a:.0%}\")"
+  distractors:
+    - "for i, t, a in enumerate(zip(trunks, asr), start=1):"
+  expected_output: "2. ic-rtd-02 is low: 40%"
+  explain: >-
+    zip pairs each trunk with its ASR, and enumerate adds a number in front. Each item
+    is (i, (t, a)), so the names need the inner brackets. Without them Python raises
+    ValueError.
+  tags: [zip, enumerate]
+
+- id: iter-parsons-all-running
+  type: parsons
+  topic: iter
+  level: 2
+  prompt: Put the lines in order to report whether all pods are running.
+  setup: |
+    import json
+    from voicelab import fake_kubectl
+    pods = json.loads(fake_kubectl())["items"]
+  lines:
+    - "phases = [p[\"status\"][\"phase\"] for p in pods]"
+    - "if all(ph == \"Running\" for ph in phases):"
+    - "    print(\"all running\")"
+    - "else:"
+    - "    print(phases.count(\"Pending\"), \"pending\")"
+  distractors:
+    - "if any(ph == \"Running\" for ph in phases):"
+  expected_output: "1 pending"
+  explain: >-
+    all() is True only if every pod is Running; one Pending pod makes it False.
+    any() would be True as soon as one pod runs, which hides the problem.
+    On a real machine you'd get this JSON from kubectl get pods -o json.
+  tags: [all, any, comprehension]
+
+- id: iter-write-slow-calls
+  type: write
+  topic: iter
+  level: 3
+  prompt: Write a generator that yields (call_id, setup_ms) for every call slower than limit_ms.
+  starter: |
+    from voicelab import read_log
+
+    def setup_ms(line):
+        return int(line.rsplit("=", 1)[1])
+
+    def call_id(line):
+        return line.split("call-id=")[1].split()[0]
+
+    def slow_calls(lines, limit_ms):
+        """Skip lines that have no setup_ms."""
+        return []
+
+    print(list(slow_calls(read_log(), 1000)))
+  tests: |
+    import types
+    check(lambda: isinstance(slow_calls(read_log(), 1000), types.GeneratorType), "slow_calls should be a generator (use yield)")
+    check(lambda: list(slow_calls(read_log(), 1000)) == [("c1004@ic", 3087), ("c1013@ic", 3014)], "two calls take more than 1000 ms")
+    check(lambda: next(slow_calls(read_log(), 500)) == ("c1003@ic", 554), "the first call above 500 ms is c1003")
+    check(lambda: list(slow_calls(read_log(), 5000)) == [], "no call takes more than 5000 ms")
+  hint: >-
+    Loop over the lines. If "setup_ms=" is not in the line, continue. Otherwise get the
+    number with setup_ms(line), and yield (call_id(line), ms) when it is above the limit.
+  solution: |
+    from voicelab import read_log
+
+    def setup_ms(line):
+        return int(line.rsplit("=", 1)[1])
+
+    def call_id(line):
+        return line.split("call-id=")[1].split()[0]
+
+    def slow_calls(lines, limit_ms):
+        for line in lines:
+            if "setup_ms=" not in line:
+                continue
+            ms = setup_ms(line)
+            if ms > limit_ms:
+                yield call_id(line), ms
+
+    print(list(slow_calls(read_log(), 1000)))
+  explain: >-
+    A generator reads a huge log one line at a time, so memory stays small. The log
+    has a keepalive line and a cut-off line; checking for "setup_ms=" first skips both
+    instead of crashing.
+  tags: [generator, yield, log]
+
+- id: iter-write-rank-trunks
+  type: write
+  topic: iter
+  level: 2
+  prompt: Return the trunk names from worst to best ASR. Equal ASRs go in name order.
+  starter: |
+    def rank_trunks(asr):
+        """rank_trunks({"a": 0.9, "b": 0.4}) -> ["b", "a"]"""
+        return list(asr)
+
+    asr = {"ic-ams-01": 0.59, "ic-rtd-02": 0.4,
+           "biz-trunk-07": 0.81}
+    print(rank_trunks(asr))
+  tests: |
+    check(lambda: rank_trunks(asr) == ["ic-rtd-02", "ic-ams-01", "biz-trunk-07"], "worst (ic-rtd-02) first, best last")
+    check(lambda: rank_trunks({"b": 0.5, "a": 0.5}) == ["a", "b"], "equal ASRs go in name order")
+    check(lambda: rank_trunks({}) == [], "no trunks should give []")
+  hint: >-
+    sorted(asr, key=...) sorts the names. Make the key a tuple: (asr[t], t) sorts by
+    ASR first and by name when the ASRs are equal.
+  solution: |
+    def rank_trunks(asr):
+        return sorted(asr, key=lambda t: (asr[t], t))
+
+    asr = {"ic-ams-01": 0.59, "ic-rtd-02": 0.4,
+           "biz-trunk-07": 0.81}
+    print(rank_trunks(asr))
+  explain: >-
+    A tuple as the key sorts by the first item, then uses the second to break ties.
+    This is how you sort by several fields at once in Python.
+  tags: [sorted, key, lambda]
