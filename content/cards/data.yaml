@@ -1,0 +1,359 @@
+# DATA deck: pathlib, csv, json, collections, statistics, sorting records (about 15 cards).
+- id: data-predict-path-parts
+  type: predict
+  topic: data
+  level: 1
+  prompt: What does this print?
+  code: |
+    from pathlib import Path
+    p = Path("data") / "cdrs.csv"
+    print(p, p.suffix, p.stem, p.exists())
+  answer: "data/cdrs.csv .csv cdrs True"
+  options:
+    - "data/cdrs.csv .csv cdrs True"
+    - "data/cdrs.csv csv cdrs.csv True"
+    - "datacdrs.csv .csv cdrs True"
+    - "data/cdrs.csv .csv cdrs False"
+  explain: >-
+    The / operator joins path parts with the right separator for the OS. .suffix is the
+    extension with its dot, .stem the name without it. The sample data folder exists,
+    so exists() is True.
+  tags: [pathlib]
+
+- id: data-predict-glob
+  type: predict
+  topic: data
+  level: 2
+  prompt: What does this print?
+  code: |
+    from pathlib import Path
+    names = sorted(p.name for p in Path("data").glob("*.json"))
+    print(names)
+  answer: "['pods.json', 'prom.json']"
+  explain: >-
+    glob("*.json") yields a Path for every matching file. Its order depends on the
+    file system, so sort it for a stable result. rglob searches subfolders too.
+  tags: [pathlib, glob]
+
+- id: data-predict-statistics
+  type: predict
+  topic: data
+  level: 2
+  prompt: What does this print?
+  code: |
+    import statistics
+    from voicelab import load_cdrs
+    talk = [int(r["duration_s"]) for r in load_cdrs()
+            if r["sip_code"] == "200"]
+    print(len(talk), round(statistics.mean(talk), 1),
+          statistics.median(talk))
+  answer: "29 210.1 184"
+  options:
+    - "29 210.1 184"
+    - "48 126.9 140"
+    - "29 184 210.1"
+    - "29 210 184.0"
+  explain: >-
+    Only the 29 answered calls are counted. The mean (210.1 s) is above the median
+    (184 s) because a few long calls pull it up. For call times the median is often
+    the more honest "typical" value.
+  tags: [statistics, csv]
+
+- id: data-predict-namedtuple
+  type: predict
+  topic: data
+  level: 1
+  prompt: What does this print?
+  code: |
+    from collections import namedtuple
+    Call = namedtuple("Call", "call_id trunk ms")
+    c = Call("c1004", "ic-rtd-02", 3087)
+    print(c.ms, c[1])
+    print(c)
+  answer: |-
+    3087 ic-rtd-02
+    Call(call_id='c1004', trunk='ic-rtd-02', ms=3087)
+  explain: >-
+    A namedtuple is a tuple with field names: c.ms and c[2] are the same value. It
+    can't be changed and has a readable repr. A dataclass is the bigger version with
+    methods and defaults.
+  tags: [namedtuple]
+
+- id: data-predict-group-quarters
+  type: predict
+  topic: data
+  level: 2
+  prompt: What does this print?
+  code: |
+    from collections import Counter
+    from voicelab import load_cdrs
+    per_quarter = Counter()
+    for row in load_cdrs():
+        minute = int(row["start"][14:16])
+        per_quarter[f"09:{minute // 15 * 15:02d}"] += 1
+    print(sorted(per_quarter.items()))
+  answer: "[('09:00', 12), ('09:15', 12), ('09:30', 12), ('09:45', 12)]"
+  explain: >-
+    minute // 15 * 15 rounds down to 0, 15, 30 or 45, so each call lands in one
+    15-minute bucket. Slicing the ISO string works because its format is fixed;
+    datetime.fromisoformat is safer for anything more complex.
+  tags: [counter, datetime, grouping]
+
+- id: data-mcq-pstdev
+  type: mcq
+  topic: data
+  level: 2
+  prompt: When do you use statistics.pstdev instead of statistics.stdev?
+  options:
+    - When the data is the whole population, like every call of the day
+    - When the numbers are percentages
+    - When the list is sorted
+    - pstdev is the faster version of stdev
+  correct: 0
+  explain: >-
+    pstdev divides by n (all the data you care about). stdev divides by n - 1, for a
+    sample that stands for a bigger group. With many values the difference is small.
+  tags: [statistics]
+
+- id: data-mcq-json-keys
+  type: mcq
+  topic: data
+  level: 2
+  prompt: After a JSON round trip, what is back?
+  code: |
+    import json
+    counts = {200: 29, 503: 4}
+    back = json.loads(json.dumps(counts))
+  options:
+    - "{'200': 29, '503': 4}: the keys became strings"
+    - "{200: 29, 503: 4}: the same as before"
+    - "[[200, 29], [503, 4]]"
+    - "It raises TypeError"
+  correct: 0
+  explain: >-
+    JSON object keys are always strings, so int keys come back as "200". Convert them
+    back if needed: {int(k): v for k, v in back.items()}.
+  tags: [json]
+
+- id: data-fill-writeheader
+  type: fill
+  topic: data
+  level: 2
+  prompt: Write the header row before the data.
+  code: |
+    import csv, io
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=["trunk", "asr"])
+    writer.____()
+    writer.writerow({"trunk": "ic-rtd-02", "asr": 0.4})
+    print(buf.getvalue().splitlines())
+  blanks:
+    - answer: writeheader
+      options: [writeheader, header, writerow, fields]
+  expected_output: "['trunk,asr', 'ic-rtd-02,0.4']"
+  explain: >-
+    DictWriter needs the field names up front, and writeheader() writes them as the
+    first line. Each writerow takes a dict with those keys.
+  tags: [csv]
+
+- id: data-fill-read-text
+  type: fill
+  topic: data
+  level: 1
+  prompt: Read the whole log file as one string.
+  code: |
+    from pathlib import Path
+    text = Path("data/sip.log").____()
+    lines = text.splitlines()
+    print(len(lines), lines[0][:24])
+  blanks:
+    - answer: read_text
+      options: [read_text, read, open, text]
+  expected_output: "18 2026-10-21T09:00:15.254Z"
+  explain: >-
+    read_text() opens, reads and closes the file in one call. For a huge file, loop
+    over `with p.open() as f: for line in f:` instead, to keep memory small.
+  tags: [pathlib]
+
+- id: data-spotbug-slowest
+  type: spot_bug
+  topic: data
+  level: 2
+  prompt: This should list the 2 longest calls. Tap the line with the bug.
+  code: |
+    from voicelab import load_cdrs
+    rows = load_cdrs()
+    by_time = sorted(rows, key=lambda r: int(r["duration_s"]))
+    for r in by_time[:2]:
+        print(r["call_id"], r["duration_s"])
+  bug_line: 3
+  fixed_code: |
+    from voicelab import load_cdrs
+    rows = load_cdrs()
+    by_time = sorted(rows, key=lambda r: -int(r["duration_s"]))
+    for r in by_time[:2]:
+        print(r["call_id"], r["duration_s"])
+  expected_output: |-
+    c1015 620
+    c1047 620
+  explain: >-
+    sorted() is smallest first, so [:2] took the two shortest calls (0 seconds). A
+    negative key (or reverse=True) puts the longest first.
+  tags: [sorted, slicing]
+
+- id: data-spotbug-path-plus
+  type: spot_bug
+  topic: data
+  level: 1
+  prompt: This should print the file size of the CDR file. Tap the line with the bug.
+  code: |
+    from pathlib import Path
+    folder = Path("data")
+    cdrs = folder + "cdrs.csv"
+    print(cdrs.stat().st_size > 0)
+  bug_line: 3
+  fixed_code: |
+    from pathlib import Path
+    folder = Path("data")
+    cdrs = folder / "cdrs.csv"
+    print(cdrs.stat().st_size > 0)
+  expected_output: "True"
+  explain: >-
+    Paths join with /, not +: Path + str raises TypeError. With plain strings, +
+    would also forget the separator: "datacdrs.csv".
+  tags: [pathlib]
+
+- id: data-parsons-csv-round-trip
+  type: parsons
+  topic: data
+  level: 2
+  prompt: Put the lines in order to write a CSV and read it back.
+  setup: |
+    import csv, io
+    rows = [{"trunk": "ic-ams-01", "asr": 0.59},
+            {"trunk": "ic-rtd-02", "asr": 0.4}]
+  lines:
+    - "buf = io.StringIO()"
+    - "writer = csv.DictWriter(buf, fieldnames=[\"trunk\", \"asr\"])"
+    - "writer.writeheader()"
+    - "writer.writerows(rows)"
+    - "back = list(csv.DictReader(io.StringIO(buf.getvalue())))"
+    - "print(back[1])"
+  distractors:
+    - "writer = csv.writer(buf)"
+  expected_output: "{'trunk': 'ic-rtd-02', 'asr': '0.4'}"
+  explain: >-
+    The asr comes back as the string '0.4': CSV keeps no types. That's why JSON is
+    often better for data that goes between programs. io.StringIO acts like a file
+    in memory, handy for tests.
+  tags: [csv]
+
+- id: data-parsons-answered-stats
+  type: parsons
+  topic: data
+  level: 2
+  prompt: Put the lines in order to print the median talk time of answered calls per trunk.
+  setup: |
+    from statistics import median
+    from collections import defaultdict
+    from voicelab import load_cdrs
+  lines:
+    - "talk = defaultdict(list)"
+    - "for row in load_cdrs():"
+    - "    if row[\"sip_code\"] == \"200\":"
+    - "        talk[row[\"trunk\"]].append(int(row[\"duration_s\"]))"
+    - "for trunk in sorted(talk):"
+    - "    print(trunk, median(talk[trunk]))"
+  distractors:
+    - "        talk[row[\"trunk\"]].append(row[\"duration_s\"])"
+  expected_output: |-
+    biz-trunk-07 184
+    ic-ams-01 244.5
+    ic-rtd-02 139.5
+  explain: >-
+    Group first (defaultdict(list)), then compute per group. int() matters: the median
+    of strings would sort them as text, and "140" < "35".
+  tags: [statistics, defaultdict, grouping]
+
+- id: data-write-top-n
+  type: write
+  topic: data
+  level: 2
+  prompt: Return the n records with the biggest value in field (as int), biggest first.
+  starter: |
+    from voicelab import load_cdrs
+    rows = load_cdrs()
+
+    def top_n(records, n, field):
+        return records[:n]
+
+    for r in top_n(rows, 3, "duration_s"):
+        print(r["call_id"], r["duration_s"])
+  tests: |
+    top = top_n(rows, 3, "duration_s")
+    check(lambda: [int(r["duration_s"]) for r in top] == [620, 620, 410], "the 3 longest calls are 620, 620 and 410 seconds")
+    check(lambda: top_n(rows, 0, "duration_s") == [], "n=0 gives []")
+    check(lambda: len(top_n(rows[:2], 5, "duration_s")) == 2, "asking for more than there are gives all of them")
+  hint: >-
+    sorted(records, key=lambda r: int(r[field]), reverse=True), then slice [:n].
+  solution: |
+    from voicelab import load_cdrs
+    rows = load_cdrs()
+
+    def top_n(records, n, field):
+        ordered = sorted(records, key=lambda r: int(r[field]),
+                         reverse=True)
+        return ordered[:n]
+
+    for r in top_n(rows, 3, "duration_s"):
+        print(r["call_id"], r["duration_s"])
+  explain: >-
+    sorted + slice is the everyday "top N". For very large data, heapq.nlargest(n,
+    records, key=...) does it without sorting everything.
+  tags: [sorted, slicing]
+
+- id: data-write-summary-json
+  type: write
+  topic: data
+  level: 3
+  prompt: "Return a JSON string: {trunk: {\"calls\": n, \"answered\": m}}, with sorted keys."
+  starter: |
+    import json
+    from voicelab import load_cdrs
+    rows = load_cdrs()
+
+    def summary_json(rows):
+        return "{}"
+
+    print(summary_json(rows)[:60])
+  tests: |
+    import json as _json
+    s = summary_json(rows)
+    check(lambda: isinstance(s, str), "return a str (use json.dumps)")
+    data = _json.loads(s)
+    check(lambda: data["ic-rtd-02"] == {"calls": 15, "answered": 6}, "ic-rtd-02: 15 calls, 6 answered")
+    check(lambda: list(data) == sorted(data), "the trunks are in sorted order (sort_keys=True)")
+    check(lambda: summary_json([]) == "{}", "no rows gives '{}'")
+  hint: >-
+    Build a dict with setdefault(trunk, {"calls": 0, "answered": 0}), then return
+    json.dumps(result, sort_keys=True).
+  solution: |
+    import json
+    from voicelab import load_cdrs
+    rows = load_cdrs()
+
+    def summary_json(rows):
+        result = {}
+        for row in rows:
+            new = {"calls": 0, "answered": 0}
+            s = result.setdefault(row["trunk"], new)
+            s["calls"] += 1
+            s["answered"] += row["sip_code"] == "200"
+        return json.dumps(result, sort_keys=True)
+
+    print(summary_json(rows)[:60])
+  explain: >-
+    sort_keys=True makes the output the same on every run, so two reports can be
+    compared with a plain diff, and a hash of the file only changes when the data
+    does.
+  tags: [json, setdefault]
