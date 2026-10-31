@@ -17,6 +17,14 @@ After that, it works in airplane mode.
 
 **Your data:** the Home Screen app keeps its own storage, separate from Safari. Removing the app from the Home Screen also removes your progress. A backup option is planned.
 
+## Run a project in a-Shell
+1. Finish a project in the Projects tab (or open the Playground), then tap **Export file**.
+2. In the share sheet, tap **Save to Files** and save all the files in one folder, for example On My iPhone › a-Shell.
+3. Open [a-Shell](https://holzschu.github.io/a-Shell_iOS/) (free), type `pickFolder`, and choose that folder.
+4. Run the script, for example `python3 sbc-log-parser.py` or `python3 voicekit-cli.py report --format json`.
+
+The script needs `voicelab.py` and the data files next to it; they are part of the export.
+
 ## Develop
 Needs Node 24 (see `.nvmrc`) and Python 3.14.
 

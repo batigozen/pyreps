@@ -71,7 +71,7 @@ Suggested mix per topic: 6 predict, 3 mcq, 3 fill, 3 spot_bug, 3 parsons, 2 writ
 | `concurrency` | the GIL in one mcq (threads help I/O, not CPU), `concurrent.futures.ThreadPoolExecutor` map pattern (reasoned offline), `async def`/`await`/`asyncio.gather` shape, when async beats threads, a race on a shared counter and the fix (lock), rate-limiting many requests conceptually |
 
 ## Projects (`content/projects/<id>.yaml`)
-A project is a list of `write` steps. **Each step's `starter` contains the full file so far** (the previous step's solution plus the new TODO), so each step validates on its own. Steps are 3–5 per project, level 2–3. Planned projects:
+A project has an `order` (its place in the Projects list), optional read-only `files` (the script reads them as `project/<name>`), and a list of `write` steps. **Each step's `starter` contains the full file so far** (the previous step's solution plus the new TODO), so each step validates on its own. Steps are 3–5 per project, level 2–3. Planned projects:
 1. `sbc-log-parser`: parse lines, then average setup time per SBC, then the 3 slowest calls as a table (seed has step 1).
 2. `kpi-report`: `TrunkStats` class with properties, then a report table with f-string specs, then JSON output with `json.dumps`.
 3. `pod-health-check`: parse `fake_kubectl()` JSON, classify problems, print a summary, return Nagios exit codes.

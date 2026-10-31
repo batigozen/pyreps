@@ -56,10 +56,10 @@ Goal: the four tap-friendly card types work with real content.
 **Done when:** about 330 cards (~240 core + ~90 deck), 0 validation problems, about 70% tap-only.
 
 ## Phase 6: Projects, Playground, export
-- [ ] Projects screen + project view (step card, file tabs, Run, Check, progress saved).
-- [ ] Author the 6 projects from CONTENT.md (validator-checked): the 4 core ones first, then `subnet-planner` and `log-triage`.
-- [ ] "Export file": Web Share API with a `.py` File (`navigator.share({ files })`), with a copy-to-clipboard fallback. Help text explains opening it in a-Shell (`python file.py`).
-- [ ] Playground: editor + symbol bar + output, last code saved, a "Sample data" sheet listing `data/*` and the `voicelab` helpers.
+- [x] Projects screen + project view (step card, file tabs, Run, Check, progress saved).
+- [x] Author the 6 projects from CONTENT.md (validator-checked): the 4 core ones first, then `subnet-planner` and `log-triage`.
+- [x] "Export file": Web Share API with a `.py` File (`navigator.share({ files })`), with a copy-to-clipboard fallback. Help text explains opening it in a-Shell (`python file.py`).
+- [x] Playground: editor + symbol bar + output, last code saved, a "Sample data" sheet listing `data/*` and the `voicelab` helpers.
 **Done when:** Bati finishes `sbc-log-parser` on the phone and runs the exported file in a-Shell.
 
 ## Phase 7: Stats, backup, polish

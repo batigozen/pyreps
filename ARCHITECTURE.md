@@ -120,6 +120,10 @@ type Project = { id: string; title: string; summary: string; files: Record<strin
 - `fake_kubectl(*args) -> str` returns `pods.json` text, and `fake_prometheus(query, **kw) -> str` returns `prom.json` text.
 - Docstrings say clearly that these stand in for `subprocess.run(["kubectl", ...])` and `requests.get(...)`.
 
+## Projects and export (Phase 6)
+- A project is a list of `write` steps plus read-only `files` (written to `/home/pyodide/project/` before each run). `order` sets its place in the list. Progress lives in the `projects` table: `{ projectId, stepIndex, code, finished, updatedAt }`. The next step starts from that step's starter, a known-good version of the script so far.
+- **Export file** shares the script plus `voicelab.py` and the four data files, flat in one folder, through `navigator.share({ files })` (type `text/plain`, names kept). `voicelab.py` reads data from its own folder when there is no `data/` folder, so the script runs unchanged in a-Shell. Without file sharing, the script alone is copied to the clipboard.
+
 ## Grading (`src/cards/grading.ts`, pure functions)
 - **predict**: normalise both strings (strip trailing whitespace per line, strip trailing newlines, `\r\n`→`\n`) and compare exactly. The input field shows hints for multi-line answers. If `options` exist, it renders as multiple choice instead.
 - **mcq**: index equality.
