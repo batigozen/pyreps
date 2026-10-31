@@ -1,0 +1,542 @@
+# ERRORS: tracebacks, try/except/else/finally, custom errors, raise from, logging (about 20 cards).
+- id: errors-predict-try-order
+  type: predict
+  topic: errors
+  level: 2
+  prompt: What does this print?
+  code: |
+    def check(code):
+        try:
+            print("try", code)
+            if code >= 500:
+                raise RuntimeError(code)
+        except RuntimeError:
+            print("except")
+        else:
+            print("else")
+        finally:
+            print("finally")
+
+    check(503)
+  answer: |-
+    try 503
+    except
+    finally
+  options:
+    - "try 503\nexcept\nfinally"
+    - "try 503\nexcept\nelse\nfinally"
+    - "try 503\nelse\nfinally"
+    - "try 503\nfinally\nexcept"
+  explain: >-
+    except runs only on an error, else only when there was none, and finally always
+    runs last. With 200 instead of 503 you'd get try, else, finally.
+  tags: [try, finally]
+
+- id: errors-predict-specific
+  type: predict
+  topic: errors
+  level: 1
+  prompt: What does this print?
+  code: |
+    for text in ["445", "48x"]:
+        try:
+            ms = int(text)
+        except ValueError:
+            print(text, "is not a number")
+        else:
+            print(text, "->", ms)
+  answer: |-
+    445 -> 445
+    48x is not a number
+  explain: >-
+    int("48x") raises ValueError, which the except catches; the loop goes on with the
+    next item. Catch the specific error you expect, not every Exception.
+  tags: [except, ValueError]
+
+- id: errors-predict-tuple
+  type: predict
+  topic: errors
+  level: 2
+  prompt: What does this print?
+  code: |
+    cfg = {"timeout": "5s"}
+    for key in ["retries", "timeout"]:
+        try:
+            value = int(cfg[key])
+        except (KeyError, ValueError) as err:
+            print(key, type(err).__name__)
+  answer: |-
+    retries KeyError
+    timeout ValueError
+  options:
+    - "retries KeyError\ntimeout ValueError"
+    - "retries KeyError"
+    - "retries ValueError\ntimeout ValueError"
+    - "timeout ValueError"
+  explain: >-
+    A tuple catches several types in one except. "retries" is missing (KeyError) and
+    "5s" isn't an int (ValueError). type(err).__name__ shows which one happened.
+  tags: [except, tuple]
+
+- id: errors-predict-cause
+  type: predict
+  topic: errors
+  level: 3
+  prompt: What does this print?
+  code: |
+    class ConfigError(Exception):
+        pass
+
+    try:
+        try:
+            timeout = int("5s")
+        except ValueError as err:
+            raise ConfigError("bad timeout") from err
+    except ConfigError as e:
+        print(e, "|", type(e.__cause__).__name__)
+  answer: "bad timeout | ValueError"
+  options:
+    - "bad timeout | ValueError"
+    - "bad timeout | NoneType"
+    - "invalid literal for int() | ConfigError"
+    - "bad timeout | ConfigError"
+  explain: >-
+    raise ... from err keeps the original error in __cause__, and the traceback shows
+    both: "The above exception was the direct cause of...". You get a clear message
+    for the caller and still keep the low-level reason.
+  tags: [raise-from, cause]
+
+- id: errors-predict-logging-levels
+  type: predict
+  topic: errors
+  level: 2
+  prompt: What does this print?
+  code: |
+    import logging, sys
+    logging.basicConfig(stream=sys.stdout, level=logging.INFO,
+                        format="%(levelname)s %(message)s")
+    log = logging.getLogger("probe")
+    log.debug("raw reply: %s", "SIP/2.0 200 OK")
+    log.info("%d calls on %s", 17, "ic-ams-01")
+    log.warning("ASR low on %s", "ic-rtd-02")
+  answer: |-
+    INFO 17 calls on ic-ams-01
+    WARNING ASR low on ic-rtd-02
+  options:
+    - "INFO 17 calls on ic-ams-01\nWARNING ASR low on ic-rtd-02"
+    - "DEBUG raw reply: SIP/2.0 200 OK\nINFO 17 calls on ic-ams-01\nWARNING ASR low on ic-rtd-02"
+    - "WARNING ASR low on ic-rtd-02"
+    - "INFO %d calls on %s\nWARNING ASR low on %s"
+  explain: >-
+    level=INFO hides DEBUG. The default level is WARNING, which also hides INFO; that's
+    why log.info sometimes "does nothing". The %s and %d values are filled in only
+    when the line is really printed.
+  tags: [logging, levels]
+
+- id: errors-predict-custom
+  type: predict
+  topic: errors
+  level: 2
+  prompt: What does this print?
+  code: |
+    class ProbeError(Exception):
+        def __init__(self, message, sbc):
+            super().__init__(message)
+            self.sbc = sbc
+
+    try:
+        raise ProbeError("no reply to OPTIONS", "sbc-ic-02")
+    except ProbeError as e:
+        print(e, "on", e.sbc, isinstance(e, Exception))
+  answer: "no reply to OPTIONS on sbc-ic-02 True"
+  explain: >-
+    A custom error is a class that extends Exception. It can carry extra data, like
+    the SBC name. str(e) is the message passed to super().__init__.
+  tags: [custom-exception]
+
+- id: errors-mcq-traceback
+  type: mcq
+  topic: errors
+  level: 1
+  prompt: This raises ZeroDivisionError. Which line does the traceback show last?
+  code: |
+    def asr(ok, calls):
+        return ok / calls
+
+    def report(stats):
+        return asr(stats["ok"], stats["calls"])
+
+    report({"ok": 0, "calls": 0})
+  options:
+    - "line 2: return ok / calls"
+    - "line 7: report(...)"
+    - "line 5: return asr(...)"
+    - "line 1: def asr(ok, calls):"
+  correct: 0
+  explain: >-
+    Read a traceback from the bottom up. The last frame is where the error happened,
+    then the error line itself. The frames above show how the program got there.
+  tags: [traceback, raises]
+
+- id: errors-mcq-bare-except
+  type: mcq
+  topic: errors
+  level: 2
+  prompt: >-
+    Why is `except:` (or `except Exception: pass`) around a whole script a bad idea?
+  options:
+    - It hides real bugs; a bare except even catches Ctrl+C and sys.exit()
+    - It makes the script slower
+    - It only catches the first error
+    - Python doesn't allow it
+  correct: 0
+  explain: >-
+    A bare except catches everything, including KeyboardInterrupt and SystemExit, and
+    a typo becomes silent. Catch the errors you expect and can handle, and let the
+    others crash loudly.
+  tags: [except]
+
+- id: errors-mcq-log-exception
+  type: mcq
+  topic: errors
+  level: 2
+  prompt: Inside an except block, why use log.exception("probe failed") instead of log.error("probe failed")?
+  options:
+    - log.exception also writes the traceback
+    - log.exception stops the program
+    - log.error doesn't work inside except
+    - log.exception raises the error again
+  correct: 0
+  explain: >-
+    log.exception logs at ERROR level and adds the current traceback, so you can see
+    where it failed. Use it only inside an except block.
+  tags: [logging]
+
+- id: errors-fill-finally
+  type: fill
+  topic: errors
+  level: 1
+  prompt: Always close the connection, error or not.
+  code: |
+    def fetch():
+        print("open")
+        try:
+            raise TimeoutError("no reply")
+        ____:
+            print("close")
+
+    try:
+        fetch()
+    except TimeoutError as err:
+        print("error:", err)
+  blanks:
+    - answer: finally
+      options: [finally, else, except, always]
+  expected_output: |-
+    open
+    close
+    error: no reply
+  explain: >-
+    finally runs on the way out of the try block, also when an error passes through.
+    "close" prints before the caller sees the error. A with block does the same job
+    for files and connections.
+  tags: [finally]
+
+- id: errors-fill-raise-from
+  type: fill
+  topic: errors
+  level: 2
+  prompt: Keep the original error as the cause.
+  code: |
+    class ConfigError(Exception):
+        pass
+
+    try:
+        try:
+            float("0,65")
+        except ValueError as err:
+            raise ConfigError("bad THRESHOLD") ____ err
+    except ConfigError as e:
+        print(type(e.__cause__).__name__)
+  blanks:
+    - answer: from
+      options: [from, as, with, by]
+  expected_output: "ValueError"
+  explain: >-
+    `raise New(...) from err` links the two errors, so the log shows the message for
+    people and the technical cause below it.
+  tags: [raise-from]
+
+- id: errors-fill-debug-level
+  type: fill
+  topic: errors
+  level: 1
+  prompt: Show the debug lines too.
+  code: |
+    import logging, sys
+    logging.basicConfig(stream=sys.stdout,
+                        level=logging.____,
+                        format="%(levelname)s %(message)s")
+    logging.debug("raw reply: %s", "SIP/2.0 486 Busy Here")
+  blanks:
+    - answer: DEBUG
+      options: [DEBUG, INFO, WARNING, ALL]
+  expected_output: "DEBUG raw reply: SIP/2.0 486 Busy Here"
+  explain: >-
+    The levels are DEBUG < INFO < WARNING < ERROR < CRITICAL. A logger shows its level
+    and everything above it, so only DEBUG lets debug lines through.
+  tags: [logging, levels]
+
+- id: errors-spotbug-wrong-except
+  type: spot_bug
+  topic: errors
+  level: 1
+  prompt: A bad number should print a message, not crash. Tap the line with the bug.
+  code: |
+    for text in ["445", "48x"]:
+        try:
+            print(int(text) * 2)
+        except KeyError:
+            print("not a number:", text)
+  bug_line: 4
+  fixed_code: |
+    for text in ["445", "48x"]:
+        try:
+            print(int(text) * 2)
+        except ValueError:
+            print("not a number:", text)
+  expected_output: |-
+    890
+    not a number: 48x
+  explain: >-
+    int("48x") raises ValueError. An except only catches the types it names, so
+    KeyError let the error through and the program crashed.
+  tags: [except]
+
+- id: errors-spotbug-swallowed
+  type: spot_bug
+  topic: errors
+  level: 2
+  prompt: A trunk with no calls should show 0%. Tap the line with the bug.
+  code: |
+    def asr(ok, calls):
+        try:
+            return ok / calls
+        except ZeroDivisionError:
+            pass
+
+    print(f"{asr(0, 0):.0%}")
+  bug_line: 5
+  fixed_code: |
+    def asr(ok, calls):
+        try:
+            return ok / calls
+        except ZeroDivisionError:
+            return 0.0
+
+    print(f"{asr(0, 0):.0%}")
+  expected_output: "0%"
+  explain: >-
+    `pass` swallowed the error and the function returned None, so the crash moved to
+    the f-string: "unsupported format string passed to NoneType". Handle the case:
+    return a real value.
+  tags: [except, None]
+
+- id: errors-spotbug-hidden-info
+  type: spot_bug
+  topic: errors
+  level: 2
+  prompt: The INFO line should be printed. Tap the line with the bug.
+  code: |
+    import logging, sys
+    logging.basicConfig(stream=sys.stdout,
+                        level=logging.WARNING,
+                        format="%(levelname)s %(message)s")
+    logging.info("checked %d trunks", 3)
+  bug_line: 3
+  fixed_code: |
+    import logging, sys
+    logging.basicConfig(stream=sys.stdout,
+                        level=logging.INFO,
+                        format="%(levelname)s %(message)s")
+    logging.info("checked %d trunks", 3)
+  expected_output: "INFO checked 3 trunks"
+  explain: >-
+    WARNING is above INFO, so the info line was dropped without any error. When a log
+    line seems to vanish, check the level first.
+  tags: [logging, levels]
+
+- id: errors-parsons-env-number
+  type: parsons
+  topic: errors
+  level: 2
+  prompt: Put the lines in order to read THRESHOLD and report a bad value.
+  setup: |
+    env = {"THRESHOLD": "0,65"}
+  lines:
+    - "try:"
+    - "    threshold = float(env[\"THRESHOLD\"])"
+    - "except ValueError:"
+    - "    print(\"THRESHOLD is not a number\")"
+    - "else:"
+    - "    print(\"threshold\", threshold)"
+  distractors:
+    - "except KeyError:"
+  expected_output: "THRESHOLD is not a number"
+  explain: >-
+    "0,65" uses a comma, so float() raises ValueError. The else part only runs when
+    the try worked, which keeps the try block to the one risky line.
+  tags: [try, else]
+
+- id: errors-parsons-raise-from
+  type: parsons
+  topic: errors
+  level: 3
+  prompt: Put the lines in order to wrap the low-level error in a ConfigError.
+  setup: |
+    class ConfigError(Exception):
+        pass
+  lines:
+    - "def load_timeout(text):"
+    - "    try:"
+    - "        return int(text)"
+    - "    except ValueError as err:"
+    - "        raise ConfigError(f\"bad timeout: {text}\") from err"
+    - "try:"
+    - "    load_timeout(\"5s\")"
+    - "except ConfigError as e:"
+    - "    print(e, \"<-\", type(e.__cause__).__name__)"
+  distractors:
+    - "        raise ConfigError(f\"bad timeout: {text}\")"
+  expected_output: "bad timeout: 5s <- ValueError"
+  explain: >-
+    The function speaks the caller's language (ConfigError) and keeps the reason
+    (ValueError) as the cause. Without `from err`, __cause__ is None.
+  tags: [raise-from, custom-exception]
+
+- id: errors-parsons-logger
+  type: parsons
+  topic: errors
+  level: 2
+  prompt: Put the lines in order to log the calls per trunk at INFO level.
+  setup: |
+    import logging, sys
+    logging.basicConfig(stream=sys.stdout,
+                        format="%(levelname)s %(name)s: %(message)s")
+  lines:
+    - "log = logging.getLogger(\"report\")"
+    - "log.setLevel(logging.INFO)"
+    - "for trunk, calls in [(\"ic-ams-01\", 17), (\"ic-rtd-02\", 15)]:"
+    - "    log.info(\"%d calls on %s\", calls, trunk)"
+  distractors:
+    - "    log.debug(\"%d calls on %s\", calls, trunk)"
+  expected_output: |-
+    INFO report: 17 calls on ic-ams-01
+    INFO report: 15 calls on ic-rtd-02
+  explain: >-
+    A named logger (getLogger("report")) can have its own level. The values go in as
+    separate arguments, %d and %s, so the text is only built if the line is shown.
+  tags: [logging]
+
+- id: errors-write-read-threshold
+  type: write
+  topic: errors
+  level: 2
+  prompt: "Return THRESHOLD from env as a float; 0.65 if missing. A bad value raises ConfigError from the ValueError."
+  starter: |
+    class ConfigError(Exception):
+        pass
+
+    def read_threshold(env):
+        return float(env["THRESHOLD"])
+
+    print(read_threshold({"THRESHOLD": "0.6"}))
+  tests: |
+    check(lambda: read_threshold({"THRESHOLD": "0.6"}) == 0.6, "'0.6' gives 0.6")
+    check(lambda: read_threshold({}) == 0.65, "missing gives the default 0.65")
+    try:
+        read_threshold({"THRESHOLD": "0,6"})
+        err = None
+    except Exception as e:
+        err = e
+    check(lambda: isinstance(err, ConfigError), "'0,6' should raise ConfigError")
+    check(lambda: isinstance(err.__cause__, ValueError), "the ConfigError should come `from` the ValueError")
+  hint: >-
+    text = env.get("THRESHOLD"); if it is None, return 0.65. Then try float(text), and
+    in `except ValueError as err:` raise ConfigError(...) from err.
+  solution: |
+    class ConfigError(Exception):
+        pass
+
+    def read_threshold(env):
+        text = env.get("THRESHOLD")
+        if text is None:
+            return 0.65
+        try:
+            return float(text)
+        except ValueError as err:
+            msg = f"THRESHOLD must be a number, got {text!r}"
+            raise ConfigError(msg) from err
+
+    print(read_threshold({"THRESHOLD": "0.6"}))
+  explain: >-
+    A missing value has a safe default; a broken value is a real problem and should
+    stop the script with a clear message. The cause keeps the technical detail for
+    whoever debugs it.
+  tags: [raise-from, custom-exception]
+
+- id: errors-write-probe-all
+  type: write
+  topic: errors
+  level: 3
+  prompt: "Call probe(sbc) for each SBC. Return {sbc: \"ok\" or \"down: <message>\"}. Only TimeoutError and ConnectionError count as down."
+  starter: |
+    def fake_probe(sbc):
+        if sbc == "sbc-ic-02":
+            raise TimeoutError("no reply to OPTIONS")
+        return "200 OK"
+
+    def probe_all(sbcs, probe):
+        return {}
+
+    print(probe_all(["sbc-ic-01", "sbc-ic-02"], fake_probe))
+  tests: |
+    r = probe_all(["sbc-ic-01", "sbc-ic-02"], fake_probe)
+    check(lambda: r == {"sbc-ic-01": "ok", "sbc-ic-02": "down: no reply to OPTIONS"}, "sbc-ic-02 is down, sbc-ic-01 ok")
+    def refused(sbc):
+        raise ConnectionError("refused")
+    check(lambda: probe_all(["sbc-biz-01"], refused) == {"sbc-biz-01": "down: refused"}, "ConnectionError also counts as down")
+    def buggy(sbc):
+        raise KeyError("oops")
+    try:
+        probe_all(["x"], buggy)
+        passed_on = False
+    except KeyError:
+        passed_on = True
+    check(lambda: passed_on, "other errors (a KeyError bug) must not be hidden")
+  hint: >-
+    Loop over the SBCs. try: probe(sbc), then result[sbc] = "ok". except
+    (TimeoutError, ConnectionError) as err: result[sbc] = f"down: {err}".
+  solution: |
+    def fake_probe(sbc):
+        if sbc == "sbc-ic-02":
+            raise TimeoutError("no reply to OPTIONS")
+        return "200 OK"
+
+    def probe_all(sbcs, probe):
+        result = {}
+        for sbc in sbcs:
+            try:
+                probe(sbc)
+            except (TimeoutError, ConnectionError) as err:
+                result[sbc] = f"down: {err}"
+            else:
+                result[sbc] = "ok"
+        return result
+
+    print(probe_all(["sbc-ic-01", "sbc-ic-02"], fake_probe))
+  explain: >-
+    One SBC being down must not stop the check of the others, so the expected network
+    errors are caught per SBC. A bug in your own code is different: it should crash
+    loudly, so it isn't caught.
+  tags: [except, tuple]
