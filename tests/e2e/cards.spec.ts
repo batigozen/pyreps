@@ -106,6 +106,7 @@ test("every gallery card fits the phone width and has big tap targets", async ({
   test.setTimeout(240_000);
   await page.goto("./#/gallery");
   const links = page.getByRole("main").getByRole("listitem").getByRole("link");
+  await expect(links.first()).toBeVisible();
   const hrefs = await links.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("href")));
   const ids = hrefs.map((href) => href?.split("/").pop() ?? "");
   expect(ids.length).toBeGreaterThanOrEqual(20);

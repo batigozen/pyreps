@@ -21,7 +21,9 @@ function renderAt(path: string) {
   );
 }
 
-const heading = () => screen.getByRole("heading", { level: 1 }).textContent;
+// Screens load lazily, so wait for the new heading to appear.
+const heading = async (name: string) =>
+  (await screen.findByRole("heading", { level: 1, name })).textContent;
 const nav = () => screen.getByRole("navigation", { name: "Main" });
 
 afterEach(cleanup);
@@ -35,11 +37,11 @@ describe("bottom navigation", () => {
     expect(labels).toEqual(["Today", "Topics", "Projects", "Playground", "Stats"]);
   });
 
-  it("opens each screen and marks only its tab as current", () => {
+  it("opens each screen and marks only its tab as current", async () => {
     renderAt("/");
     for (const tab of TABS) {
       fireEvent.click(within(nav()).getByRole("link", { name: tab.label }));
-      expect(heading()).toBe(tab.label);
+      expect(await heading(tab.label)).toBe(tab.label);
       const current = within(nav())
         .getAllByRole("link")
         .filter((link) => link.getAttribute("aria-current") === "page");
@@ -47,18 +49,18 @@ describe("bottom navigation", () => {
     }
   });
 
-  it("sends unknown paths to Today", () => {
+  it("sends unknown paths to Today", async () => {
     renderAt("/no-such-screen");
-    expect(heading()).toBe("Today");
+    expect(await heading("Today")).toBe("Today");
   });
 });
 
 describe("settings", () => {
-  it("opens from Today and goes back", () => {
+  it("opens from Today and goes back", async () => {
     renderAt("/");
     fireEvent.click(screen.getByRole("link", { name: "Settings" }));
-    expect(heading()).toBe("Settings");
-    fireEvent.click(screen.getByRole("link", { name: "Back to Today" }));
-    expect(heading()).toBe("Today");
+    expect(await heading("Settings")).toBe("Settings");
+    fireEvent.click(await screen.findByRole("link", { name: "Back to Today" }));
+    expect(await heading("Today")).toBe("Today");
   });
 });
