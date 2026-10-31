@@ -1,0 +1,415 @@
+# CONCURRENCY deck: threads, futures, asyncio and rate limiting (about 15 cards).
+# The app's Python has no threads and can't run asyncio.run(), so cards that run them
+# are tap-only and tagged cpython-only. The write cards practise the logic around them.
+- id: concurrency-predict-pool-map
+  type: predict
+  topic: concurrency
+  level: 2
+  prompt: What does this print? (This card runs on a real machine, not in the app.)
+  code: |
+    from concurrent.futures import ThreadPoolExecutor
+
+    def probe(sbc):
+        return f"{sbc}: 200 OK"
+
+    sbcs = ["sbc-ic-01", "sbc-ic-02", "sbc-biz-01"]
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        print(list(pool.map(probe, sbcs)))
+  answer: "['sbc-ic-01: 200 OK', 'sbc-ic-02: 200 OK', 'sbc-biz-01: 200 OK']"
+  explain: >-
+    pool.map runs probe in several threads at once, but returns the results in the
+    order of the inputs, whichever finishes first. The with block waits for all
+    threads before it ends.
+  tags: [threads, futures, cpython-only]
+
+- id: concurrency-predict-gather-order
+  type: predict
+  topic: concurrency
+  level: 2
+  prompt: What does this print? (This card runs on a real machine, not in the app.)
+  code: |
+    import asyncio
+
+    async def probe(sbc, delay):
+        await asyncio.sleep(delay)
+        return sbc
+
+    async def main():
+        replies = await asyncio.gather(probe("sbc-ic-01", 0.05),
+                                       probe("sbc-ic-02", 0.01))
+        print(replies)
+
+    asyncio.run(main())
+  answer: "['sbc-ic-01', 'sbc-ic-02']"
+  options:
+    - "['sbc-ic-01', 'sbc-ic-02']"
+    - "['sbc-ic-02', 'sbc-ic-01']"
+    - "sbc-ic-02"
+    - "[<coroutine>, <coroutine>]"
+  explain: >-
+    gather runs both coroutines at the same time and returns their results in the
+    order you passed them, not the order they finished. sbc-ic-02 finished first, but
+    comes second.
+  tags: [asyncio, gather, cpython-only]
+
+- id: concurrency-predict-coroutine-object
+  type: predict
+  topic: concurrency
+  level: 2
+  prompt: What does this print?
+  code: |
+    async def probe(sbc):
+        print("probing", sbc)
+        return f"{sbc} 200 OK"
+
+    c = probe("sbc-ic-01")
+    print(type(c).__name__)
+    c.close()
+  answer: "coroutine"
+  options:
+    - "coroutine"
+    - "probing sbc-ic-01\ncoroutine"
+    - "sbc-ic-01 200 OK"
+    - "str"
+  explain: >-
+    Calling an async function runs none of its body. It returns a coroutine object
+    that only runs when you await it (or pass it to asyncio.run or gather). That's why
+    a forgotten await "does nothing".
+  tags: [asyncio, coroutine]
+
+- id: concurrency-predict-batches
+  type: predict
+  topic: concurrency
+  level: 2
+  prompt: What does this print?
+  code: |
+    sbcs = [f"sbc-{n:02d}" for n in range(1, 8)]
+    batches = [sbcs[i:i + 3] for i in range(0, len(sbcs), 3)]
+    print(len(batches), batches[-1])
+  answer: "3 ['sbc-07']"
+  options:
+    - "3 ['sbc-07']"
+    - "2 ['sbc-04', 'sbc-05', 'sbc-06']"
+    - "3 ['sbc-07', None, None]"
+    - "7 ['sbc-07']"
+  explain: >-
+    Stepping by 3 and slicing [i:i + 3] cuts the list into groups of 3; the last group
+    is just what's left. Sending one batch at a time is a simple way to limit load on
+    an API.
+  tags: [batching, slicing]
+
+- id: concurrency-predict-semaphore
+  type: predict
+  topic: concurrency
+  level: 3
+  prompt: What does this print? (This card runs on a real machine, not in the app.)
+  code: |
+    import asyncio
+
+    in_flight = peak = 0
+
+    async def probe(sbc, limit):
+        global in_flight, peak
+        async with limit:
+            in_flight += 1
+            peak = max(peak, in_flight)
+            await asyncio.sleep(0.01)
+            in_flight -= 1
+        return sbc
+
+    async def main():
+        limit = asyncio.Semaphore(2)
+        sbcs = [f"sbc-{i}" for i in range(5)]
+        jobs = [probe(s, limit) for s in sbcs]
+        done = await asyncio.gather(*jobs)
+        print(len(done), peak)
+
+    asyncio.run(main())
+  answer: "5 2"
+  options:
+    - "5 2"
+    - "5 5"
+    - "2 2"
+    - "5 1"
+  explain: >-
+    gather starts all 5 at once, but the semaphore lets only 2 inside `async with` at
+    the same time, so never more than 2 probes run together. That's how you
+    rate-limit many requests.
+  tags: [asyncio, semaphore, rate-limit, cpython-only]
+
+- id: concurrency-mcq-gil
+  type: mcq
+  topic: concurrency
+  level: 2
+  prompt: In CPython, which job do threads speed up?
+  options:
+    - Waiting on many network calls, like probing 50 SBCs
+    - Heavy maths on one big list
+    - Sorting a list faster
+    - "Any code: each thread gets its own CPU core"
+  correct: 0
+  explain: >-
+    The GIL lets only one thread run Python code at a time. While a thread waits for
+    the network, it lets go, so waiting overlaps. CPU-heavy work needs processes
+    (multiprocessing) instead.
+  tags: [gil, threads]
+
+- id: concurrency-mcq-async-vs-threads
+  type: mcq
+  topic: concurrency
+  level: 2
+  prompt: When is asyncio a better choice than threads?
+  options:
+    - Thousands of connections that mostly wait, handled by one thread
+    - Short scripts that call one API once
+    - CPU-heavy work like hashing big files
+    - Code that uses a library without async support
+  correct: 0
+  explain: >-
+    An idle coroutine costs very little, so asyncio handles many waiting connections
+    well. But every library in the chain must be async; with a blocking library,
+    threads are simpler.
+  tags: [asyncio, threads]
+
+- id: concurrency-mcq-await-sleep
+  type: mcq
+  topic: concurrency
+  level: 1
+  prompt: Inside an async function, what does await asyncio.sleep(1) do that time.sleep(1) doesn't?
+  options:
+    - It lets other tasks run while this one waits
+    - It sleeps more exactly
+    - It runs the sleep in a new thread
+    - Nothing; they are the same
+  correct: 0
+  explain: >-
+    time.sleep blocks the whole event loop, so every task stops. await hands control
+    back to the loop until the time is up.
+  tags: [asyncio]
+
+- id: concurrency-fill-lock
+  type: fill
+  topic: concurrency
+  level: 2
+  prompt: Protect the shared counter. (Runs on a real machine.)
+  code: |
+    import threading
+
+    count = 0
+    lock = threading.Lock()
+
+    def add_calls(n):
+        global count
+        for _ in range(n):
+            with ____:
+                count += 1
+
+    jobs = [threading.Thread(target=add_calls, args=(10_000,))
+            for _ in range(4)]
+    for job in jobs:
+        job.start()
+    for job in jobs:
+        job.join()
+    print(count)
+  blanks:
+    - answer: lock
+      options: [lock, threading, count, "Lock()"]
+  expected_output: "40000"
+  explain: >-
+    count += 1 is a read, an add and a write; two threads can read the same old value
+    and lose an update. The shared lock lets one thread at a time through. A new
+    Lock() each time would protect nothing.
+  tags: [threads, lock, race, cpython-only]
+
+- id: concurrency-fill-gather
+  type: fill
+  topic: concurrency
+  level: 2
+  prompt: Run all probes at the same time and wait for every result. (Runs on a real machine.)
+  code: |
+    import asyncio
+
+    async def probe(sbc):
+        await asyncio.sleep(0.01)
+        return f"{sbc} ok"
+
+    async def main():
+        tasks = [probe(s) for s in ("sbc-ic-01", "sbc-ic-02")]
+        replies = await asyncio.____(*tasks)
+        print(replies)
+
+    asyncio.run(main())
+  blanks:
+    - answer: gather
+      options: [gather, wait_all, join, run]
+  expected_output: "['sbc-ic-01 ok', 'sbc-ic-02 ok']"
+  explain: >-
+    asyncio.gather(*coroutines) runs them together and returns a list of results.
+    Probing 50 SBCs that each take 1 s then takes about 1 s, not 50.
+  tags: [asyncio, gather, cpython-only]
+
+- id: concurrency-spotbug-missing-await
+  type: spot_bug
+  topic: concurrency
+  level: 2
+  prompt: This should print "SBC-IC-01 200 OK". Tap the line with the bug. (Runs on a real machine.)
+  code: |
+    import asyncio
+
+    async def probe(sbc):
+        await asyncio.sleep(0.01)
+        return f"{sbc} 200 ok"
+
+    async def main():
+        reply = probe("sbc-ic-01")
+        print(reply.upper())
+
+    asyncio.run(main())
+  bug_line: 8
+  fixed_code: |
+    import asyncio
+
+    async def probe(sbc):
+        await asyncio.sleep(0.01)
+        return f"{sbc} 200 ok"
+
+    async def main():
+        reply = await probe("sbc-ic-01")
+        print(reply.upper())
+
+    asyncio.run(main())
+  expected_output: "SBC-IC-01 200 OK"
+  explain: >-
+    Without await, reply is a coroutine object, not the string, so .upper() fails with
+    AttributeError, and Python warns "coroutine was never awaited".
+  tags: [asyncio, await, cpython-only]
+
+- id: concurrency-spotbug-batch-overlap
+  type: spot_bug
+  topic: concurrency
+  level: 2
+  prompt: Send the SBCs in batches of 2, each SBC once. Tap the line with the bug.
+  code: |
+    sbcs = ["sbc-1", "sbc-2", "sbc-3", "sbc-4", "sbc-5"]
+    batches = [sbcs[i:i + 3] for i in range(0, len(sbcs), 2)]
+    print(batches)
+  bug_line: 2
+  fixed_code: |
+    sbcs = ["sbc-1", "sbc-2", "sbc-3", "sbc-4", "sbc-5"]
+    batches = [sbcs[i:i + 2] for i in range(0, len(sbcs), 2)]
+    print(batches)
+  expected_output: "[['sbc-1', 'sbc-2'], ['sbc-3', 'sbc-4'], ['sbc-5']]"
+  explain: >-
+    The step and the slice size must be the same number. With step 2 and size 3,
+    neighbouring batches overlap and SBCs get probed twice.
+  tags: [batching, slicing]
+
+- id: concurrency-parsons-gather
+  type: parsons
+  topic: concurrency
+  level: 2
+  prompt: Put the lines in order to probe two SBCs at the same time. (Runs on a real machine.)
+  setup: |
+    import asyncio
+
+    async def probe(sbc):
+        await asyncio.sleep(0.01)
+        return f"{sbc} 200 OK"
+  lines:
+    - "async def main():"
+    - "    sbcs = [\"sbc-ic-01\", \"sbc-ic-02\"]"
+    - "    jobs = [probe(s) for s in sbcs]"
+    - "    replies = await asyncio.gather(*jobs)"
+    - "    print(replies)"
+    - "asyncio.run(main())"
+  distractors:
+    - "main()"
+  expected_output: "['sbc-ic-01 200 OK', 'sbc-ic-02 200 OK']"
+  explain: >-
+    asyncio.run starts the event loop and runs main to the end. Calling main() on its
+    own only makes a coroutine object, and nothing runs.
+  tags: [asyncio, gather, cpython-only]
+
+- id: concurrency-write-batches
+  type: write
+  topic: concurrency
+  level: 2
+  prompt: Write a generator that yields lists of at most size items, in order.
+  starter: |
+    def batches(items, size):
+        """batches([1, 2, 3], 2) -> [1, 2], then [3]"""
+        yield items
+
+    sbcs = [f"sbc-{n}" for n in range(1, 6)]
+    print(list(batches(sbcs, 2)))
+  tests: |
+    check(lambda: list(batches([1, 2, 3, 4, 5], 2)) == [[1, 2], [3, 4], [5]], "5 items in batches of 2")
+    check(lambda: list(batches([1, 2, 3], 3)) == [[1, 2, 3]], "an exact fit gives one batch")
+    check(lambda: list(batches([], 4)) == [], "no items gives no batches")
+  hint: >-
+    for i in range(0, len(items), size): yield items[i:i + size]
+  solution: |
+    def batches(items, size):
+        for i in range(0, len(items), size):
+            yield items[i:i + size]
+
+    sbcs = [f"sbc-{n}" for n in range(1, 6)]
+    print(list(batches(sbcs, 2)))
+  explain: >-
+    Batching keeps the number of requests in flight small. On a real machine you'd
+    send each batch with a ThreadPoolExecutor or asyncio.gather, and pause between
+    batches. Python 3.12 adds itertools.batched for this.
+  tags: [batching, generator]
+
+- id: concurrency-write-rate-limiter
+  type: write
+  topic: concurrency
+  level: 3
+  prompt: "allow(now) returns True if fewer than per_second calls were allowed in the last second, and records the call."
+  starter: |
+    from collections import deque
+
+    class RateLimiter:
+        def __init__(self, per_second):
+            self.per_second = per_second
+            self.recent = deque()
+
+        def allow(self, now):
+            return True
+
+    rl = RateLimiter(2)
+    print([rl.allow(t) for t in (0.0, 0.1, 0.2, 1.05)])
+  tests: |
+    a = RateLimiter(2)
+    check(lambda: [a.allow(t) for t in (0.0, 0.1, 0.2, 1.05, 1.15)] == [True, True, False, True, True], "2 per second: the 3rd call at 0.2 s waits, later calls pass")
+    b = RateLimiter(1)
+    check(lambda: (b.allow(5.0), b.allow(5.5), b.allow(6.0)) == (True, False, True), "1 per second: 5.5 is too soon, 6.0 is fine")
+    c = RateLimiter(3)
+    check(lambda: all(c.allow(9.0) for _ in range(3)) and not c.allow(9.0), "3 calls at once are fine, the 4th is not")
+  hint: >-
+    First drop the times from recent that are 1 second or more older than now
+    (popleft). Then, if len(self.recent) < self.per_second, append now and return
+    True; otherwise return False.
+  solution: |
+    from collections import deque
+
+    class RateLimiter:
+        def __init__(self, per_second):
+            self.per_second = per_second
+            self.recent = deque()
+
+        def allow(self, now):
+            while self.recent and now - self.recent[0] >= 1:
+                self.recent.popleft()
+            if len(self.recent) < self.per_second:
+                self.recent.append(now)
+                return True
+            return False
+
+    rl = RateLimiter(2)
+    print([rl.allow(t) for t in (0.0, 0.1, 0.2, 1.05)])
+  explain: >-
+    A sliding window keeps the times of recent calls; a deque drops old ones from the
+    left cheaply. Passing now in keeps it testable; on a real machine you'd call
+    allow(time.monotonic()).
+  tags: [rate-limit, deque]
