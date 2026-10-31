@@ -156,3 +156,157 @@
     sha256 needs bytes, so .encode() first. Comparing two fingerprints tells you
     exactly which lines changed between two versions of a file.
   tags: [hashlib, comprehension]
+
+- id: security-predict-digest-lengths
+  type: predict
+  topic: security
+  level: 1
+  prompt: What does this print?
+  code: |
+    import hashlib
+    data = b"threshold=0.65"
+    md5 = hashlib.md5(data).hexdigest()
+    sha = hashlib.sha256(data).hexdigest()
+    again = hashlib.sha256(data).hexdigest()
+    print(len(md5), len(sha), sha == again)
+  answer: "32 64 True"
+  options:
+    - "32 64 True"
+    - "16 32 True"
+    - "32 64 False"
+    - "14 14 True"
+  explain: >-
+    MD5 gives 16 bytes (32 hex characters) and SHA-256 32 bytes (64 hex). The same
+    input always gives the same digest. MD5 is broken for security; use it only as a
+    quick checksum, and SHA-256 for integrity checks.
+  tags: [hashlib]
+
+- id: security-predict-hmac-sign
+  type: predict
+  topic: security
+  level: 2
+  prompt: What does this print?
+  code: |
+    import hashlib, hmac
+    key = b"webhook-secret"
+    body = b'{"alarm": "high-503"}'
+    sig = hmac.new(key, body, hashlib.sha256).hexdigest()
+    changed = body + b" "
+    other = hmac.new(key, changed, hashlib.sha256).hexdigest()
+    print(len(sig), sig == other)
+  answer: "64 False"
+  options:
+    - "64 False"
+    - "64 True"
+    - "32 False"
+    - "21 False"
+  explain: >-
+    An HMAC is a hash of the body mixed with a secret key. Changing one byte of the
+    body (even a space) gives a different signature, so the receiver can detect
+    changes and fakes.
+  tags: [hmac]
+
+- id: security-predict-token-hex
+  type: predict
+  topic: security
+  level: 1
+  prompt: What does this print?
+  code: |
+    import secrets
+    token = secrets.token_hex(16)
+    hex_only = all(c in "0123456789abcdef" for c in token)
+    print(len(token), hex_only)
+  answer: "32 True"
+  options:
+    - "32 True"
+    - "16 True"
+    - "16 False"
+    - "22 True"
+  explain: >-
+    token_hex(16) uses 16 random bytes and shows each as 2 hex characters: 32
+    characters. The value changes on every run, but the length doesn't. Use secrets,
+    never random, for tokens.
+  tags: [secrets]
+
+- id: security-mcq-pbkdf2
+  type: mcq
+  topic: security
+  level: 2
+  prompt: Why store passwords with hashlib.pbkdf2_hmac (a salt and many rounds) instead of one sha256?
+  options:
+    - It makes each guess slow and different per user, so stolen hashes are hard to crack
+    - It can be reversed if you know the salt
+    - sha256 is too slow for passwords
+    - pbkdf2 encrypts the password with a key
+  correct: 0
+  explain: >-
+    SHA-256 is fast, so attackers can test billions of guesses. Many rounds slow every
+    guess down, and a random salt per user stops precomputed tables. On a real
+    machine: hashlib.pbkdf2_hmac("sha256", pw, salt, 600_000).
+  tags: [hashlib, passwords]
+
+- id: security-fill-compare-digest
+  type: fill
+  topic: security
+  level: 2
+  prompt: Compare the signatures in constant time.
+  code: |
+    import hashlib, hmac
+    key, body = b"webhook-secret", b'{"alarm": "high-503"}'
+    expected = hmac.new(key, body, hashlib.sha256).hexdigest()
+    received = expected
+    print(hmac.____(expected, received))
+  blanks:
+    - answer: compare_digest
+      options: [compare_digest, compare, equals, digest]
+  expected_output: "True"
+  explain: >-
+    compare_digest takes the same time whether the first or the last character
+    differs, so timing can't leak how close a guess was.
+  tags: [hmac, timing]
+
+- id: security-spotbug-substring-allowlist
+  type: spot_bug
+  topic: security
+  level: 2
+  prompt: Only the two real trunk names should be accepted. Tap the line with the bug.
+  code: |
+    ALLOWED = "ic-ams-01,ic-rtd-02"
+    for name in ["ic-rtd-02", "ic", "ams-01,ic"]:
+        if name in ALLOWED:
+            print("accepted", name)
+  bug_line: 1
+  fixed_code: |
+    ALLOWED = {"ic-ams-01", "ic-rtd-02"}
+    for name in ["ic-rtd-02", "ic", "ams-01,ic"]:
+        if name in ALLOWED:
+            print("accepted", name)
+  expected_output: "accepted ic-rtd-02"
+  explain: >-
+    `in` on a string checks for a substring, so "ic" and "ams-01,ic" pass. Validate
+    input against a set of exact values. This kind of loose check is a common way in
+    for attackers.
+  tags: [validation, input]
+
+- id: security-spotbug-b64-str
+  type: spot_bug
+  topic: security
+  level: 1
+  prompt: This should print a Basic auth header. Tap the line with the bug.
+  code: |
+    import base64
+    pair = "oss:voice123"
+    token = base64.b64encode(pair).decode()
+    print("Authorization: Basic " + token)
+  bug_line: 3
+  fixed_code: |
+    import base64
+    pair = "oss:voice123"
+    token = base64.b64encode(pair.encode()).decode()
+    print("Authorization: Basic " + token)
+  expected_output: "Authorization: Basic b3NzOnZvaWNlMTIz"
+  explain: >-
+    base64 works on bytes: .encode() turns the str into bytes first, and .decode()
+    turns the result back into text. Remember that this is only encoding: anyone can
+    decode it, so send it over HTTPS only.
+  tags: [base64, encoding]

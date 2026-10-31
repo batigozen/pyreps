@@ -161,3 +161,166 @@
     len(list(net.hosts())) also works but builds the whole list; num_addresses - 2
     is instant even for a /8. (A /31 and /32 are special cases with 0 usable here.)
   tags: [ipaddress]
+
+- id: net-predict-byte-order
+  type: predict
+  topic: net
+  level: 2
+  prompt: What does this print?
+  code: |
+    port = 5060
+    print(port.to_bytes(2, "big").hex(),
+          port.to_bytes(2, "little").hex(),
+          int.from_bytes(b"\x13\xc4", "big"))
+  answer: "13c4 c413 5060"
+  options:
+    - "13c4 c413 5060"
+    - "c413 13c4 5060"
+    - "13c4 13c4 50195"
+    - "5060 0605 5060"
+  explain: >-
+    5060 is 0x13C4. Big-endian puts the high byte first (13 c4), which is network
+    byte order; little-endian (most CPUs) puts it last. Reading the bytes in the wrong
+    order gives a completely different number.
+  tags: [bytes, byte-order]
+
+- id: net-predict-subnets
+  type: predict
+  topic: net
+  level: 2
+  prompt: What does this print?
+  code: |
+    import ipaddress
+    pod_range = ipaddress.ip_network("10.244.0.0/22")
+    nodes = list(pod_range.subnets(new_prefix=24))
+    print(len(nodes), nodes[-1], nodes[0].num_addresses)
+  answer: "4 10.244.3.0/24 256"
+  options:
+    - "4 10.244.3.0/24 256"
+    - "22 10.244.22.0/24 256"
+    - "4 10.244.4.0/24 1024"
+    - "2 10.244.1.0/24 512"
+  explain: >-
+    A /22 is 4 times a /24 (2 more prefix bits = 2 ** 2). subnets(new_prefix=24) splits
+    it, which is how a Kubernetes pod range is cut into one /24 per node.
+  tags: [ipaddress, cidr]
+
+- id: net-mcq-socket
+  type: mcq
+  topic: net
+  level: 1
+  prompt: What does this line give you? (Runs on a real machine.)
+  code: |
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.close()
+  options:
+    - An IPv4 UDP socket object; nothing is sent yet
+    - A TCP connection to localhost
+    - An IPv6 socket that is already listening
+    - The IP address of the machine
+  correct: 0
+  explain: >-
+    AF_INET means IPv4 (AF_INET6 is IPv6). SOCK_DGRAM is UDP: separate datagrams with
+    no connection and no delivery guarantee, like SIP over port 5060. SOCK_STREAM is
+    TCP. Nothing happens on the network until sendto() or connect().
+  tags: [socket, udp, cpython-only]
+
+- id: net-fill-from-bytes
+  type: fill
+  topic: net
+  level: 2
+  prompt: Read the 16-bit sequence number from bytes 2 and 3.
+  code: |
+    header = bytes.fromhex("80001000")
+    seq = int.____(header[2:4], "big")
+    print(seq, header[0])
+  blanks:
+    - answer: from_bytes
+      options: [from_bytes, to_bytes, frombytes, decode]
+  expected_output: "4096 128"
+  explain: >-
+    int.from_bytes(data, "big") turns bytes into a number. Slicing bytes gives bytes,
+    and indexing one byte (header[0]) gives an int directly: 0x80 = 128.
+  tags: [bytes]
+
+- id: net-spotbug-byte-order
+  type: spot_bug
+  topic: net
+  level: 2
+  prompt: The port in these network bytes is 5060. Tap the line with the bug.
+  code: |
+    import struct
+    data = b"\x13\xc4"
+    (port,) = struct.unpack("<H", data)
+    print(port)
+  bug_line: 3
+  fixed_code: |
+    import struct
+    data = b"\x13\xc4"
+    (port,) = struct.unpack(">H", data)
+    print(port)
+  expected_output: "5060"
+  explain: >-
+    Network protocols use big-endian (">" or "!"). "<" reads the bytes the other way
+    round and gives 50195. This is a classic bug when parsing captured packets.
+  tags: [struct, byte-order]
+
+- id: net-parsons-rtp-header
+  type: parsons
+  topic: net
+  level: 3
+  prompt: Put the lines in order to parse a 12-byte RTP-style header.
+  setup: |
+    packet = bytes.fromhex("80001000000003e8cafebabe")
+  lines:
+    - "import struct"
+    - "flags, pt, seq, ts, ssrc = struct.unpack(\">BBHII\", packet)"
+    - "version = flags >> 6"
+    - "print(version, pt, seq, ts, hex(ssrc))"
+  distractors:
+    - "flags, pt, seq, ts, ssrc = struct.unpack(\"<BBHII\", packet)"
+  expected_output: "2 0 4096 1000 0xcafebabe"
+  explain: >-
+    >BBHII is 1 + 1 + 2 + 4 + 4 = 12 bytes, read big-endian. The RTP version is the
+    top 2 bits of the first byte, so flags >> 6 gives 2. Payload type 0 is PCMU
+    (G.711).
+  tags: [struct, rtp]
+
+- id: net-write-allowed
+  type: write
+  topic: net
+  level: 2
+  prompt: Return True when ip is inside any of the CIDR networks in the allow list.
+  starter: |
+    import ipaddress
+
+    ALLOW = ["10.244.0.0/16", "192.168.10.0/28"]
+
+    def allowed(ip, networks=ALLOW):
+        return False
+
+    print(allowed("10.244.2.17"), allowed("192.168.10.20"))
+  tests: |
+    check(lambda: allowed("10.244.2.17") is True, "10.244.2.17 is in 10.244.0.0/16")
+    check(lambda: allowed("192.168.10.20") is False, "192.168.10.20 is outside the /28")
+    check(lambda: allowed("192.168.10.15") is True, ".15 is the last address of the /28")
+    check(lambda: allowed("8.8.8.8", []) is False, "an empty allow list allows nothing")
+  hint: >-
+    Turn ip into ipaddress.ip_address(ip) once. Then
+    any(addr in ipaddress.ip_network(n) for n in networks).
+  solution: |
+    import ipaddress
+
+    ALLOW = ["10.244.0.0/16", "192.168.10.0/28"]
+
+    def allowed(ip, networks=ALLOW):
+        addr = ipaddress.ip_address(ip)
+        return any(addr in ipaddress.ip_network(n)
+                   for n in networks)
+
+    print(allowed("10.244.2.17"), allowed("192.168.10.20"))
+  explain: >-
+    An allow list of CIDR ranges is how firewalls and SBC access lists work.
+    ipaddress does the bit maths, so there's no error-prone string splitting.
+  tags: [ipaddress, any]
