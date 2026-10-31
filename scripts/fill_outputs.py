@@ -46,7 +46,8 @@ def as_yaml(key: str, output: str, indent: str) -> str:
     text = output.rstrip("\n")
     if "\n" in text:
         body = "\n".join(f"{indent}  {line}" if line else "" for line in text.split("\n"))
-        return f"{indent}{key}: |\n{body}"
+        # |- keeps no final newline, so the answer equals its option exactly.
+        return f"{indent}{key}: |-\n{body}"
     return f"{indent}{key}: {json.dumps(text, ensure_ascii=False)}"
 
 
