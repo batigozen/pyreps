@@ -13,8 +13,10 @@ steps:
       from voicelab import read_log
 
       LINE = re.compile(
-          r"^(?P<ts>\S+) (?P<level>\w+)\s+(?P<sbc>\S+) INVITE call-id=(?P<call_id>\S+) "
-          r"from=(?P<caller>\S+) to=(?P<callee>\S+) -> (?P<code>\d{3}) (?P<reason>.+?) "
+          r"^(?P<ts>\S+) (?P<level>\w+)\s+(?P<sbc>\S+) "
+          r"INVITE call-id=(?P<call_id>\S+) "
+          r"from=(?P<caller>\S+) to=(?P<callee>\S+) "
+          r"-> (?P<code>\d{3}) (?P<reason>.+?) "
           r"setup_ms=(?P<setup_ms>\d+)$"
       )
 
@@ -34,8 +36,10 @@ steps:
       from voicelab import read_log
 
       LINE = re.compile(
-          r"^(?P<ts>\S+) (?P<level>\w+)\s+(?P<sbc>\S+) INVITE call-id=(?P<call_id>\S+) "
-          r"from=(?P<caller>\S+) to=(?P<callee>\S+) -> (?P<code>\d{3}) (?P<reason>.+?) "
+          r"^(?P<ts>\S+) (?P<level>\w+)\s+(?P<sbc>\S+) "
+          r"INVITE call-id=(?P<call_id>\S+) "
+          r"from=(?P<caller>\S+) to=(?P<callee>\S+) "
+          r"-> (?P<code>\d{3}) (?P<reason>.+?) "
           r"setup_ms=(?P<setup_ms>\d+)$"
       )
 
@@ -44,7 +48,8 @@ steps:
           if m is None:
               return None
           d = m.groupdict()
-          d["code"], d["setup_ms"] = int(d["code"]), int(d["setup_ms"])
+          d["code"] = int(d["code"])
+          d["setup_ms"] = int(d["setup_ms"])
           return d
 
       print(parse_line(read_log()[4]))

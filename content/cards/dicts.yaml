@@ -5,8 +5,10 @@
   level: 1
   prompt: What does this print?
   code: |
-    cdr = {"call_id": "c1001", "trunk": "ic-rtd-02", "sip_code": "480"}
-    print(cdr.get("reason"), cdr.get("reason", "unknown"), "sip_code" in cdr)
+    cdr = {"call_id": "c1001", "trunk": "ic-rtd-02",
+           "sip_code": "480"}
+    print(cdr.get("reason"), cdr.get("reason", "unknown"),
+          "sip_code" in cdr)
   answer: None unknown True
   explain: >-
     .get() returns None for a missing key, or the default you pass as the second argument.
@@ -55,13 +57,15 @@
   level: 2
   prompt: This should list trunks from worst to best ASR. Tap the line with the bug.
   code: |
-    asr = {"ic-ams-01": 0.588, "ic-rtd-02": 0.4, "biz-trunk-07": 0.812}
+    asr = {"ic-ams-01": 0.588, "ic-rtd-02": 0.4,
+           "biz-trunk-07": 0.812}
     worst_first = sorted(asr.items(), key=lambda item: item[0])
     for trunk, value in worst_first:
         print(trunk, f"{value:.0%}")
-  bug_line: 2
+  bug_line: 3
   fixed_code: |
-    asr = {"ic-ams-01": 0.588, "ic-rtd-02": 0.4, "biz-trunk-07": 0.812}
+    asr = {"ic-ams-01": 0.588, "ic-rtd-02": 0.4,
+           "biz-trunk-07": 0.812}
     worst_first = sorted(asr.items(), key=lambda item: item[1])
     for trunk, value in worst_first:
         print(trunk, f"{value:.0%}")

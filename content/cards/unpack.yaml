@@ -23,7 +23,8 @@
     defaults = {"threshold": 0.65, "timeout": 5}
     from_env = {"threshold": 0.6}
     cfg = {**defaults, **from_env}
-    print(cfg["threshold"], cfg["timeout"], defaults["threshold"])
+    print(cfg["threshold"], cfg["timeout"],
+          defaults["threshold"])
   answer: 0.6 5 0.65
   options: ["0.6 5 0.65", "0.65 5 0.65", "0.6 5 0.6", "0.65 5 0.6"]
   explain: >-
@@ -96,19 +97,22 @@
   prompt: Turn keyword flags into kubectl arguments.
   starter: |
     def kubectl_args(verb, resource, **flags):
-        """kubectl_args("get", "pods", namespace="voice-oss", output="json")
-        -> ["get", "pods", "--namespace=voice-oss", "--output=json"]"""
+        """kubectl_args("get", "pods", namespace="oss")
+        -> ["get", "pods", "--namespace=oss"]"""
         return []
 
-    print(kubectl_args("get", "pods", namespace="voice-oss", output="json"))
+    print(kubectl_args("get", "pods", namespace="voice-oss",
+                       output="json"))
   tests: |
     check(lambda: kubectl_args("get", "pods", namespace="voice-oss", output="json") == ["get", "pods", "--namespace=voice-oss", "--output=json"], "docstring example")
     check(lambda: kubectl_args("describe", "pod") == ["describe", "pod"], "no flags -> just verb and resource")
   hint: flags is a dict. Build f"--{k}={v}" for each item and spread that list into the result with *.
   solution: |
     def kubectl_args(verb, resource, **flags):
-        return [verb, resource, *[f"--{k}={v}" for k, v in flags.items()]]
+        opts = [f"--{k}={v}" for k, v in flags.items()]
+        return [verb, resource, *opts]
 
-    print(kubectl_args("get", "pods", namespace="voice-oss", output="json"))
+    print(kubectl_args("get", "pods", namespace="voice-oss",
+                       output="json"))
   explain: "[*a, *b] builds one list from two; **flags collected the keyword arguments into a dict."
   tags: [kwargs, star]

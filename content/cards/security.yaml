@@ -8,7 +8,8 @@
   code: |
     import hashlib
     data = b"voice123"
-    print(hashlib.sha256(data).hexdigest()[:12], len(hashlib.sha256(data).hexdigest()))
+    digest = hashlib.sha256(data).hexdigest()
+    print(digest[:12], len(digest))
   answer: be8f2a5735b5 64
   explain: >-
     sha256 always produces 32 bytes, shown as 64 hex characters. hexdigest() is
@@ -132,7 +133,7 @@
     import hashlib
 
     def fingerprint(lines):
-        """fingerprint(["a", "b"]) -> {"a": "<64 hex>", "b": "<64 hex>"}"""
+        """fingerprint(["a"]) -> {"a": "<64 hex chars>"}"""
         return {}
 
     print(len(fingerprint(["timeout=5", "threshold=0.65"])))
@@ -147,7 +148,8 @@
     import hashlib
 
     def fingerprint(lines):
-        return {line: hashlib.sha256(line.encode()).hexdigest() for line in lines}
+        return {line: hashlib.sha256(line.encode()).hexdigest()
+                for line in lines}
 
     print(len(fingerprint(["timeout=5", "threshold=0.65"])))
   explain: >-

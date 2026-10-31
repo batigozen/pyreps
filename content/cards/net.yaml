@@ -9,7 +9,8 @@
   code: |
     import ipaddress
     net = ipaddress.ip_network("10.244.2.0/24")
-    print(net.network_address, net.broadcast_address, net.num_addresses)
+    print(net.network_address, net.broadcast_address,
+          net.num_addresses)
   answer: 10.244.2.0 10.244.2.255 256
   explain: >-
     ip_network parses CIDR and does the subnet math for you: the /24 means 256
@@ -59,7 +60,7 @@
   prompt: What does this print?
   code: |
     import struct
-    # one RTP-like header field: version/flags byte, then a 16-bit sequence number
+    # RTP-like header: flags byte, 16-bit sequence number
     header = struct.pack(">BH", 0x80, 4096)
     print(header, len(header))
   answer: b'\x80\x10\x00' 3
