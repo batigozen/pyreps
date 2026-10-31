@@ -1,5 +1,8 @@
 // @vitest-environment node
 import { beforeAll, describe, expect, it } from "vitest";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { parse } from "yaml";
 import { startPython, type TestPython } from "./pyodide.ts";
 
@@ -24,19 +27,15 @@ type Card = {
 // CONTENT.md rule 10: read-only cards may show code that only runs on a real machine.
 const CPYTHON_ONLY = "cpython-only";
 
-const cardFiles = import.meta.glob<string>("../../content/cards/*.yaml", {
-  query: "?raw",
-  import: "default",
-  eager: true,
-});
-const projectFiles = import.meta.glob<string>("../../content/projects/*.yaml", {
-  query: "?raw",
-  import: "default",
-  eager: true,
-});
+// Read from disk each run: a cached import.meta.glob can miss a new topic file.
+const contentDir = fileURLToPath(new URL("../../content/", import.meta.url));
+const readYaml = (dir: string) =>
+  readdirSync(join(contentDir, dir))
+    .filter((name) => name.endsWith(".yaml"))
+    .map((name) => readFileSync(join(contentDir, dir, name), "utf8"));
 
-const cards = Object.values(cardFiles).flatMap((text) => parse(text) as Card[]);
-const steps = Object.values(projectFiles).flatMap((text) =>
+const cards = readYaml("cards").flatMap((text) => parse(text) as Card[]);
+const steps = readYaml("projects").flatMap((text) =>
   (parse(text) as { steps: Card[] }).steps.map((step) => ({ ...step, type: "write" })),
 );
 

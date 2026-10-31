@@ -22,5 +22,5 @@
     "noFallthroughCasesInSwitch": true,
     "erasableSyntaxOnly": true
   },
-  "include": ["src", "tests/unit"]
+  "include": ["src"]
 }
