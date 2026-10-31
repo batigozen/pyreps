@@ -9,6 +9,7 @@ import GalleryScreen from "./screens/GalleryScreen.tsx";
 import GalleryCardScreen from "./screens/GalleryCardScreen.tsx";
 import SessionScreen from "./screens/SessionScreen.tsx";
 import TopicScreen from "./screens/TopicScreen.tsx";
+import ProjectScreen from "./screens/ProjectScreen.tsx";
 
 export default function AppRoutes() {
   return (
@@ -18,6 +19,7 @@ export default function AppRoutes() {
       <Route path="/topics/:topicId" element={<TopicScreen />} />
       <Route path="/session" element={<SessionScreen />} />
       <Route path="/projects" element={<ProjectsScreen />} />
+      <Route path="/projects/:projectId" element={<ProjectScreen />} />
       <Route path="/playground" element={<PlaygroundScreen />} />
       <Route path="/stats" element={<StatsScreen />} />
       <Route path="/settings" element={<SettingsScreen />} />

@@ -181,3 +181,12 @@
     transparent calc(0.5rem + 2px) 1.25rem
   );
 }
+
+/* Bottom sheet (<dialog>). */
+.sheet::backdrop {
+  background: rgb(0 0 0 / 0.45);
+}
+
+.sheet-body {
+  padding-bottom: calc(env(safe-area-inset-bottom) + var(--gutter));
+}

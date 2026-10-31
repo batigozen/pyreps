@@ -190,5 +190,6 @@ export function buildContent(
     projects.push(parsed.data);
   }
 
+  projects.sort((a, b) => a.order - b.order);
   return { content: { topics, cards, projects }, errors };
 }

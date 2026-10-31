@@ -108,6 +108,7 @@ describe("buildContent", () => {
   it("reports repeated ids, also across projects", () => {
     const project = {
       id: "sbc-log-parser",
+      order: 1,
       title: "SBC log parser",
       summary: "s",
       files: {},

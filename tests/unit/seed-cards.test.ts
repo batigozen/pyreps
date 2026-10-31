@@ -22,6 +22,7 @@ type Card = {
   tests?: string;
   solution?: string;
   tags?: string[];
+  files?: Record<string, string>;
 };
 
 // CONTENT.md rule 10: read-only cards may show code that only runs on a real machine.
@@ -35,9 +36,10 @@ const readYaml = (dir: string) =>
     .map((name) => readFileSync(join(contentDir, dir, name), "utf8"));
 
 const cards = readYaml("cards").flatMap((text) => parse(text) as Card[]);
-const steps = readYaml("projects").flatMap((text) =>
-  (parse(text) as { steps: Card[] }).steps.map((step) => ({ ...step, type: "write" })),
-);
+const steps = readYaml("projects").flatMap((text) => {
+  const project = parse(text) as { files: Record<string, string>; steps: Card[] };
+  return project.steps.map((step) => ({ ...step, type: "write", files: project.files }));
+});
 
 const norm = (text: string) =>
   text
@@ -92,10 +94,11 @@ describe("seed cards in Pyodide", () => {
         expectOutput([card.setup ?? "", ...(card.lines ?? [])].join("\n"), card.expected_output);
         break;
       case "write": {
-        const solved = run(card.solution ?? "", { mode: "test", tests: card.tests ?? "" });
+        const options = { mode: "test", tests: card.tests ?? "", files: card.files } as const;
+        const solved = run(card.solution ?? "", options);
         expect(solved.error).toBeNull();
         expect(solved.checks?.failures).toEqual([]);
-        const starter = run(card.starter ?? "", { mode: "test", tests: card.tests ?? "" });
+        const starter = run(card.starter ?? "", options);
         expect(starter.checks?.passed ?? false).toBe(false);
         break;
       }

@@ -111,6 +111,8 @@ export const ProjectStepSchema = z.strictObject({
 
 export const ProjectSchema = z.strictObject({
   id: kebab,
+  /** Position in the Projects list: the core projects first, then the deck ones. */
+  order: z.int().positive(),
   title: text,
   summary: text,
   files: z.record(z.string(), z.string()),

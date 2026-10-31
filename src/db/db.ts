@@ -33,11 +33,20 @@ export type AttemptRow = {
 
 type KvRow = { key: string; value: unknown };
 
+/** Where the user is in a mini project, and their code for the current step. */
+export type ProjectRow = {
+  projectId: string;
+  stepIndex: number;
+  code: string;
+  finished: boolean;
+  updatedAt: number;
+};
+
 type PyRepsDb = Dexie & {
   reviewStates: EntityTable<ReviewStateRow, "cardId">;
   reviewLog: EntityTable<ReviewLogRow, "id">;
   attempts: EntityTable<AttemptRow, "id">;
-  projects: EntityTable<{ projectId: string }, "projectId">;
+  projects: EntityTable<ProjectRow, "projectId">;
   kv: EntityTable<KvRow, "key">;
 };
 
@@ -72,6 +81,25 @@ const draftKey = (id: string) => `draft:${id}`;
 export const loadDraft = (id: string) => getKv<string>(draftKey(id));
 export const saveDraft = (id: string, code: string) => setKv(draftKey(id), code);
 export const clearDraft = (id: string) => deleteKv(draftKey(id));
+
+// --- projects --------------------------------------------------------------------------
+
+export const getProject = (projectId: string) => db.projects.get(projectId);
+export const listProjects = () => db.projects.toArray();
+
+export async function saveProject(row: Omit<ProjectRow, "updatedAt">) {
+  await db.projects.put({ ...row, updatedAt: Date.now() });
+}
+
+/** Saves new code for the current step, keeping the step and finished flag. */
+export async function saveProjectCode(projectId: string, stepIndex: number, code: string) {
+  await db.transaction("rw", db.projects, async () => {
+    const row = await db.projects.get(projectId);
+    await saveProject({ projectId, stepIndex, code, finished: row?.finished ?? false });
+  });
+}
+
+export const resetProject = (projectId: string) => db.projects.delete(projectId);
 
 // --- settings --------------------------------------------------------------------------
 
