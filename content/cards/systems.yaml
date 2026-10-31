@@ -1,0 +1,489 @@
+# SYSTEMS: env vars, subprocess, kubectl JSON, Prometheus, timeouts and backoff (about 20 cards).
+# Offline only: kubectl and Prometheus come from voicelab fakes. subprocess cards are
+# tap-only and tagged cpython-only (CONTENT.md rule 10): the app can't start processes.
+- id: systems-predict-environ-str
+  type: predict
+  topic: systems
+  level: 1
+  prompt: What does this print?
+  code: |
+    import os
+    os.environ["THRESHOLD"] = "0.65"
+    value = os.environ.get("THRESHOLD")
+    print(type(value).__name__, float(value) * 100)
+  answer: "str 65.0"
+  options:
+    - "str 65.0"
+    - "float 65.0"
+    - "str 0.650.65"
+    - "float 0.65"
+  explain: >-
+    Environment variables are always strings. Convert them yourself with float() or
+    int(), right where you read them.
+  tags: [environ]
+
+- id: systems-predict-environ-default
+  type: predict
+  topic: systems
+  level: 1
+  prompt: What does this print? (TIMEOUT and API_TOKEN are not set.)
+  code: |
+    import os
+    timeout = int(os.environ.get("TIMEOUT", "5"))
+    print(timeout + 1, os.environ.get("API_TOKEN"))
+  answer: "6 None"
+  explain: >-
+    .get(name, default) returns the default when the variable is missing, and None
+    without a default. os.environ["API_TOKEN"] would raise KeyError instead.
+  tags: [environ, get]
+
+- id: systems-predict-kubectl-phases
+  type: predict
+  topic: systems
+  level: 2
+  prompt: What does this print?
+  code: |
+    import json
+    from collections import Counter
+    from voicelab import fake_kubectl
+    out = fake_kubectl("get", "pods", "-o", "json")
+    pods = json.loads(out)["items"]
+    print(dict(Counter(p["status"]["phase"] for p in pods)))
+  answer: "{'Running': 4, 'Pending': 1}"
+  options:
+    - "{'Running': 4, 'Pending': 1}"
+    - "{'Running': 5}"
+    - "{'Running': 3, 'Failed': 1, 'Pending': 1}"
+    - "{'Pending': 1, 'Running': 4}"
+  explain: >-
+    kubectl -o json returns a List with the pods in "items". The cdr-exporter pod is
+    still "Running" even though it restarted 6 times: phase alone doesn't show
+    health, ready and restartCount do. On a real machine the text comes from
+    subprocess.run(["kubectl", ...]).
+  tags: [kubectl, json]
+
+- id: systems-predict-prometheus-value
+  type: predict
+  topic: systems
+  level: 2
+  prompt: What does this print?
+  code: |
+    import json
+    from voicelab import fake_prometheus
+    reply = json.loads(fake_prometheus("sip_failure_ratio"))
+    values = {r["metric"]["trunk"]: float(r["value"][1])
+              for r in reply["data"]["result"]}
+    print(max(values, key=values.get), values["ic-rtd-02"])
+  answer: "ic-rtd-02 0.142"
+  explain: >-
+    Each Prometheus result has a "value" of [timestamp, "string"]. The number is the
+    second item, as text, so float() is needed. ic-rtd-02 has the highest failure
+    ratio.
+  tags: [prometheus, json]
+
+- id: systems-predict-subprocess
+  type: predict
+  topic: systems
+  level: 2
+  prompt: What does this print? (This card runs on a real machine, not in the app.)
+  code: |
+    import subprocess
+    r = subprocess.run(["echo", "sbc-ic-01"],
+                       capture_output=True, text=True)
+    print(repr(r.stdout), r.returncode)
+  answer: "'sbc-ic-01\\n' 0"
+  options:
+    - "'sbc-ic-01\\n' 0"
+    - "'sbc-ic-01' 0"
+    - "b'sbc-ic-01\\n' 0"
+    - "None 0"
+  explain: >-
+    capture_output=True keeps the output in r.stdout instead of printing it.
+    text=True gives a str (without it, bytes). The command's own newline is kept, so
+    use .strip(). returncode 0 means success.
+  tags: [subprocess, cpython-only]
+
+- id: systems-predict-backoff
+  type: predict
+  topic: systems
+  level: 2
+  prompt: What does this print?
+  code: |
+    delays = [min(2 ** attempt, 30) for attempt in range(6)]
+    print(delays, sum(delays))
+  answer: "[1, 2, 4, 8, 16, 30] 61"
+  options:
+    - "[1, 2, 4, 8, 16, 30] 61"
+    - "[2, 4, 8, 16, 32, 64] 126"
+    - "[0, 2, 4, 6, 8, 10] 30"
+    - "[1, 2, 4, 8, 16, 32] 63"
+  explain: >-
+    Exponential backoff doubles the wait after each failure: 1, 2, 4, 8 seconds...
+    A cap (here 30) stops it from growing forever. It gives a struggling server time
+    to recover.
+  tags: [backoff]
+
+- id: systems-mcq-shell-injection
+  type: mcq
+  topic: systems
+  level: 2
+  prompt: pod comes from user input and could be "x; rm -rf ~". Which call is safe?
+  options:
+    - subprocess.run(["kubectl", "logs", pod])
+    - subprocess.run(f"kubectl logs {pod}", shell=True)
+    - os.system("kubectl logs " + pod)
+    - subprocess.run("kubectl logs " + pod, shell=True, check=True)
+  correct: 0
+  explain: >-
+    With a list, pod is one argument, passed straight to kubectl; no shell reads the
+    ";". With shell=True or os.system, the shell runs everything after ";" as a second
+    command. That's shell injection.
+  tags: [subprocess, security]
+
+- id: systems-mcq-check-true
+  type: mcq
+  topic: systems
+  level: 2
+  prompt: What does check=True do in subprocess.run([...], check=True)?
+  options:
+    - It raises CalledProcessError when the exit code isn't 0
+    - It checks that the command exists before running it
+    - It prints the exit code
+    - It retries the command once
+  correct: 0
+  explain: >-
+    Without check=True a failed command returns quietly with a non-zero returncode, and
+    your script carries on with bad data. With it, the failure stops you at the right
+    place.
+  tags: [subprocess]
+
+- id: systems-mcq-requests-timeout
+  type: mcq
+  topic: systems
+  level: 2
+  prompt: Why always call requests.get(url, params=q, timeout=5) with a timeout?
+  options:
+    - Without it, a server that never answers can hang the script forever
+    - The request is faster with a timeout
+    - requests needs it to build the URL
+    - It retries 5 times by itself
+  correct: 0
+  explain: >-
+    requests has no default timeout. A cron job stuck on one silent server never
+    finishes and never alerts. A timeout turns that into a clear error you can retry.
+  tags: [requests, timeout]
+
+- id: systems-fill-environ-get
+  type: fill
+  topic: systems
+  level: 1
+  prompt: Read LOG_LEVEL, with INFO when it isn't set.
+  code: |
+    import os
+    level = os.environ.____("LOG_LEVEL", "INFO")
+    print(level)
+  blanks:
+    - answer: get
+      options: [get, read, fetch, find]
+  expected_output: "INFO"
+  explain: >-
+    os.environ works like a dict, so .get(name, default) is the way to read an
+    optional setting.
+  tags: [environ]
+
+- id: systems-fill-float-env
+  type: fill
+  topic: systems
+  level: 1
+  prompt: Turn ASR_MIN into a number.
+  code: |
+    import os
+    os.environ["ASR_MIN"] = "0.5"
+    limit = ____(os.environ.get("ASR_MIN", "0.5"))
+    print(limit, 0.59 > limit)
+  blanks:
+    - answer: float
+      options: [float, int, str, eval]
+  expected_output: "0.5 True"
+  explain: >-
+    float("0.5") gives 0.5. int("0.5") raises ValueError. Never use eval on outside
+    input: it runs any code the value contains.
+  tags: [environ, types]
+
+- id: systems-fill-capture-output
+  type: fill
+  topic: systems
+  level: 2
+  prompt: Keep the command's output in a variable. (Runs on a real machine.)
+  code: |
+    import subprocess
+    r = subprocess.run(["echo", "200 OK"],
+                       ____=True, text=True)
+    print(r.stdout.strip().split())
+  blanks:
+    - answer: capture_output
+      options: [capture_output, stdout, output, capture]
+  expected_output: "['200', 'OK']"
+  explain: >-
+    capture_output=True collects stdout and stderr on the result object. Without it,
+    the output goes straight to the terminal and r.stdout is None.
+  tags: [subprocess, cpython-only]
+
+- id: systems-spotbug-env-compare
+  type: spot_bug
+  topic: systems
+  level: 2
+  prompt: >-
+    This should print "retries: 3". Tap the line with the bug.
+  code: |
+    import os
+    retries = os.environ.get("RETRIES", "3")
+    if retries > 2:
+        print("retries:", retries)
+  bug_line: 2
+  fixed_code: |
+    import os
+    retries = int(os.environ.get("RETRIES", "3"))
+    if retries > 2:
+        print("retries:", retries)
+  expected_output: "retries: 3"
+  explain: >-
+    The value is the string "3", and Python 3 can't compare a str with an int:
+    TypeError. Convert once, where you read it.
+  tags: [environ, types]
+
+- id: systems-spotbug-linear-backoff
+  type: spot_bug
+  topic: systems
+  level: 2
+  prompt: >-
+    The waits should double: 1, 2, 4, 8. Tap the line with the bug.
+  code: |
+    waits = []
+    for attempt in range(4):
+        waits.append(2 * attempt)
+    print(waits)
+  bug_line: 3
+  fixed_code: |
+    waits = []
+    for attempt in range(4):
+        waits.append(2 ** attempt)
+    print(waits)
+  expected_output: "[1, 2, 4, 8]"
+  explain: >-
+    2 * attempt grows by 2 each time (0, 2, 4, 6) and starts at no wait at all.
+    2 ** attempt doubles: 1, 2, 4, 8.
+  tags: [backoff]
+
+- id: systems-spotbug-prom-string
+  type: spot_bug
+  topic: systems
+  level: 2
+  prompt: This should print the trunks with a failure ratio above 0.1. Tap the line with the bug.
+  code: |
+    import json
+    from voicelab import fake_prometheus
+    result = json.loads(fake_prometheus("q"))["data"]["result"]
+    for r in result:
+        if r["value"][1] > 0.1:
+            print(r["metric"]["trunk"])
+  bug_line: 5
+  fixed_code: |
+    import json
+    from voicelab import fake_prometheus
+    result = json.loads(fake_prometheus("q"))["data"]["result"]
+    for r in result:
+        if float(r["value"][1]) > 0.1:
+            print(r["metric"]["trunk"])
+  expected_output: "ic-rtd-02"
+  explain: >-
+    Prometheus sends the value as a string, "0.142", and "0.142" > 0.1 raises
+    TypeError. float() first.
+  tags: [prometheus, types]
+
+- id: systems-parsons-retry-backoff
+  type: parsons
+  topic: systems
+  level: 2
+  prompt: Put the lines in order to retry with backoff until the request works.
+  setup: |
+    replies = iter([TimeoutError("t1"), TimeoutError("t2"), "200 OK"])
+
+    def fake_get(url, timeout):
+        reply = next(replies)
+        if isinstance(reply, Exception):
+            raise reply
+        return reply
+  lines:
+    - "for attempt in range(4):"
+    - "    try:"
+    - "        reply = fake_get(\"http://prom:9090\", timeout=5)"
+    - "        break"
+    - "    except TimeoutError:"
+    - "        print(\"retry in\", 2 ** attempt, \"s\")"
+    - "print(reply)"
+  distractors:
+    - "        reply = fake_get(\"http://prom:9090\")"
+  expected_output: |-
+    retry in 1 s
+    retry in 2 s
+    200 OK
+  explain: >-
+    break leaves the loop as soon as a request works. Each timeout prints the next
+    wait, doubling each time. On a real machine you'd call time.sleep(2 ** attempt)
+    and requests.get(url, timeout=5) here.
+  tags: [backoff, timeout]
+
+- id: systems-parsons-not-ready
+  type: parsons
+  topic: systems
+  level: 2
+  prompt: Put the lines in order to print the pods that are not ready.
+  setup: |
+    import json
+    from voicelab import fake_kubectl
+  lines:
+    - "out = fake_kubectl(\"get\", \"pods\", \"-o\", \"json\")"
+    - "pods = json.loads(out)[\"items\"]"
+    - "for pod in pods:"
+    - "    statuses = pod[\"status\"].get(\"containerStatuses\", [])"
+    - "    ready = all(c[\"ready\"] for c in statuses)"
+    - "    if not statuses or not ready:"
+    - "        print(pod[\"metadata\"][\"name\"])"
+  distractors:
+    - "    if not ready:"
+  expected_output: |-
+    cdr-exporter-g62q9xtk4r-bjmw2
+    kpi-collector-5d8f7c9b4f-2xvkp
+  explain: >-
+    all() of an empty list is True, so a Pending pod with no containers would look
+    ready. Check `not statuses` first. This is the core of a health check.
+  tags: [kubectl, json, all]
+
+- id: systems-parsons-subprocess
+  type: parsons
+  topic: systems
+  level: 2
+  prompt: Put the lines in order to run a command safely and read its output. (Runs on a real machine.)
+  lines:
+    - "import subprocess"
+    - "cmd = [\"echo\", \"sbc-ic-01\", \"OK\"]"
+    - "r = subprocess.run(cmd, capture_output=True, text=True)"
+    - "print(r.returncode, r.stdout.split())"
+  distractors:
+    - "r = subprocess.run(\" \".join(cmd), shell=True)"
+  expected_output: "0 ['sbc-ic-01', 'OK']"
+  explain: >-
+    The command as a list needs no shell, so nothing in the arguments can start a
+    second command. capture_output and text give you r.stdout as a str.
+  tags: [subprocess, cpython-only]
+
+- id: systems-write-load-config
+  type: write
+  topic: systems
+  level: 2
+  prompt: "Read the config from env: PROM_URL is required (ValueError if missing); TIMEOUT is a float, default 5.0; RETRIES an int, default 3."
+  starter: |
+    def load_config(env):
+        return {"prom_url": env.get("PROM_URL"),
+                "timeout": env.get("TIMEOUT"),
+                "retries": env.get("RETRIES")}
+
+    print(load_config({"PROM_URL": "http://prom:9090",
+                       "TIMEOUT": "2.5"}))
+  tests: |
+    c = load_config({"PROM_URL": "http://prom:9090", "TIMEOUT": "2.5"})
+    check(lambda: c == {"prom_url": "http://prom:9090", "timeout": 2.5, "retries": 3}, "TIMEOUT '2.5' becomes 2.5, RETRIES defaults to 3")
+    check(lambda: load_config({"PROM_URL": "u", "RETRIES": "7"})["retries"] == 7, "RETRIES '7' becomes 7")
+    check(lambda: load_config({"PROM_URL": "u"})["timeout"] == 5.0, "TIMEOUT defaults to 5.0")
+    try:
+        load_config({})
+        missing = None
+    except Exception as e:
+        missing = e
+    check(lambda: isinstance(missing, ValueError), "a missing PROM_URL raises ValueError")
+  hint: >-
+    if "PROM_URL" not in env: raise ValueError("PROM_URL is required"). Then
+    float(env.get("TIMEOUT", "5")) and int(env.get("RETRIES", "3")).
+  solution: |
+    def load_config(env):
+        if "PROM_URL" not in env:
+            raise ValueError("PROM_URL is required")
+        return {"prom_url": env["PROM_URL"],
+                "timeout": float(env.get("TIMEOUT", "5")),
+                "retries": int(env.get("RETRIES", "3"))}
+
+    print(load_config({"PROM_URL": "http://prom:9090",
+                       "TIMEOUT": "2.5"}))
+  explain: >-
+    Passing env in as a dict makes the function easy to test; in the app you'd call
+    load_config(os.environ). A missing required value fails at start-up, not halfway
+    through a run.
+  tags: [environ, config]
+
+- id: systems-write-fetch-retry
+  type: write
+  topic: systems
+  level: 3
+  prompt: "Call get(url, timeout=5) up to tries times. On TimeoutError, sleep(1), sleep(2), sleep(4)... and try again. After the last try, raise the error."
+  starter: |
+    def fetch(get, url, tries=4, sleep=lambda s: None):
+        return get(url, timeout=5)
+
+    replies = iter([TimeoutError("slow"), "200 OK"])
+
+    def fake_get(url, timeout):
+        reply = next(replies)
+        if isinstance(reply, Exception):
+            raise reply
+        return reply
+
+    print(fetch(fake_get, "http://prom:9090"))
+  tests: |
+    waits = []
+    seq = iter([TimeoutError("a"), TimeoutError("b"), "200 OK"])
+    def flaky(url, timeout):
+        assert timeout == 5
+        r = next(seq)
+        if isinstance(r, Exception):
+            raise r
+        return r
+    check(lambda: fetch(flaky, "u", sleep=waits.append) == "200 OK", "the third try gives '200 OK'")
+    check(lambda: waits == [1, 2], "it waits 1, then 2 seconds")
+    waits2 = []
+    def down(url, timeout):
+        raise TimeoutError("down")
+    try:
+        fetch(down, "u", tries=3, sleep=waits2.append)
+        raised = False
+    except TimeoutError:
+        raised = True
+    check(lambda: raised, "after the last try the TimeoutError is raised")
+    check(lambda: waits2 == [1, 2], "3 tries means 2 waits: 1 and 2 (no wait after the last)")
+  hint: >-
+    for attempt in range(tries): try: return get(url, timeout=5). except TimeoutError:
+    if attempt == tries - 1: raise. Otherwise sleep(2 ** attempt).
+  solution: |
+    def fetch(get, url, tries=4, sleep=lambda s: None):
+        for attempt in range(tries):
+            try:
+                return get(url, timeout=5)
+            except TimeoutError:
+                if attempt == tries - 1:
+                    raise
+                sleep(2 ** attempt)
+
+    replies = iter([TimeoutError("slow"), "200 OK"])
+
+    def fake_get(url, timeout):
+        reply = next(replies)
+        if isinstance(reply, Exception):
+            raise reply
+        return reply
+
+    print(fetch(fake_get, "http://prom:9090"))
+  explain: >-
+    Passing get and sleep in as arguments makes the retry logic testable without a
+    network or real waiting. On a real machine: fetch(requests.get, url,
+    sleep=time.sleep). A bare `raise` re-raises the current error unchanged.
+  tags: [backoff, timeout, retry]
