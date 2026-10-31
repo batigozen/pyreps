@@ -22,6 +22,13 @@
   --code-com: #5f6670;
   --code-deco: #7a5200;
 
+  /* One-hue ramp for charts, light to dark. Checked with the dataviz validator
+     (--ordinal) against the card surface in each mode. */
+  --seq-1: #7cc4bc;
+  --seq-2: #45a198;
+  --seq-3: #1d7f77;
+  --seq-4: #0b5f5a;
+
   --nav-h: 60px;
   --gutter: 16px;
 }
@@ -45,6 +52,10 @@
     --code-num: #f2b46b;
     --code-com: #9aa3ad;
     --code-deco: #e6c06b;
+    --seq-1: #2d6b66;
+    --seq-2: #3b928a;
+    --seq-3: #4fb5ac;
+    --seq-4: #7ad8cf;
   }
 }
 
@@ -59,6 +70,10 @@
   --color-accent-fg: var(--accent-fg);
   --color-ok: var(--ok);
   --color-bad: var(--bad);
+  --color-seq-1: var(--seq-1);
+  --color-seq-2: var(--seq-2);
+  --color-seq-3: var(--seq-3);
+  --color-seq-4: var(--seq-4);
   --font-sans: "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
 }
