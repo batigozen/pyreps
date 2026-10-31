@@ -20,6 +20,20 @@ export const countBlanks = (code: string) => code.split(BLANK).length - 1;
 
 export const codeLines = (code: string) => code.replace(/\n+$/, "").split("\n");
 
+/** Code lines the user sees must fit a phone without much sideways scrolling. */
+export const MAX_LINE = 60;
+
+function longLines(fields: Record<string, string | readonly string[] | undefined>): string[] {
+  return Object.entries(fields).flatMap(([name, value]) => {
+    const lines = typeof value === "string" ? value.split("\n") : (value ?? []);
+    return lines.flatMap((line, i) =>
+      line.length > MAX_LINE
+        ? [`${name} line ${i + 1} has ${line.length} characters (at most ${MAX_LINE})`]
+        : [],
+    );
+  });
+}
+
 // `spot_bug` becomes `spotbug` in ids: dicts-spotbug-sort-by-value.
 const idPrefix = (card: Card) => `${card.topic}-${card.type.replace("_", "")}-`;
 
@@ -30,6 +44,7 @@ function cardProblems(card: Card): string[] {
   }
   switch (card.type) {
     case "predict":
+      problems.push(...longLines({ code: card.code }));
       if (card.options && !card.options.includes(card.answer)) {
         problems.push("answer is not one of the options");
       }
@@ -38,10 +53,12 @@ function cardProblems(card: Card): string[] {
       }
       break;
     case "mcq":
+      problems.push(...longLines({ code: card.code }));
       if (card.correct >= card.options.length) problems.push("correct is past the last option");
       if (new Set(card.options).size !== card.options.length) problems.push("options repeat");
       break;
     case "fill": {
+      problems.push(...longLines({ code: card.code }));
       const found = countBlanks(card.code);
       if (found !== card.blanks.length) {
         problems.push(`code has ${found} ${BLANK} but there are ${card.blanks.length} blanks`);
@@ -57,6 +74,7 @@ function cardProblems(card: Card): string[] {
       break;
     }
     case "spot_bug": {
+      problems.push(...longLines({ code: card.code, fixed_code: card.fixed_code }));
       const buggy = codeLines(card.code);
       const fixed = codeLines(card.fixed_code);
       if (card.bug_line > buggy.length) {
@@ -76,6 +94,7 @@ function cardProblems(card: Card): string[] {
       break;
     }
     case "parsons":
+      problems.push(...longLines({ lines: card.lines, distractors: card.distractors }));
       card.lines.forEach((line, i) => {
         const spaces = line.length - line.trimStart().length;
         if (spaces % 4 !== 0 || spaces > 16) {
@@ -89,6 +108,7 @@ function cardProblems(card: Card): string[] {
       }
       break;
     case "write":
+      problems.push(...longLines({ starter: card.starter, solution: card.solution }));
       break;
   }
   return problems;
@@ -162,7 +182,11 @@ export function buildContent(
       continue;
     }
     claim(parsed.data.id, file.path);
-    for (const step of parsed.data.steps) claim(step.id, file.path);
+    for (const step of parsed.data.steps) {
+      claim(step.id, file.path);
+      const long = longLines({ starter: step.starter, solution: step.solution });
+      errors.push(...long.map((p) => `${file.path} :: ${step.id}: ${p}`));
+    }
     projects.push(parsed.data);
   }
 

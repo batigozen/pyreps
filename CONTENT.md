@@ -82,4 +82,6 @@ A project is a list of `write` steps. **Each step's `starter` contains the full 
 In the app, a finished project offers "Export file", which saves `<project>.py` to iOS Files so it can be run in a-Shell with real files.
 
 ## Validation
+To fill outputs without typing them, put `__RUN__` where the output goes (`answer: __RUN__`, one option `- __RUN__`, or `expected_output: __RUN__`) and run `.venv/bin/python scripts/fill_outputs.py content/cards/<topic>.yaml`. It runs the code like the validator and writes what Python printed. The build also rejects shown code lines over 60 characters.
+
 Run `.venv/bin/python scripts/validate_content.py` (add `--topic dicts` for one topic, `--verbose` to list passes). It must report `0 with problems` before any commit that touches `content/`. Then run `npm test`, which runs the same cards in Pyodide (rule 10). The validator, not the author, is the source of truth for expected outputs: write the code, run it, then copy the real output into `answer`.

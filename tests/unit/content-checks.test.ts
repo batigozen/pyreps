@@ -100,6 +100,11 @@ describe("buildContent", () => {
     );
   });
 
+  it("reports shown code lines over 60 characters", () => {
+    const card = { ...mcq, code: `x = "${"a".repeat(60)}"\n` };
+    expect(errorsFor([card]).join()).toContain("code line 1 has 66 characters (at most 60)");
+  });
+
   it("reports repeated ids, also across projects", () => {
     const project = {
       id: "sbc-log-parser",
