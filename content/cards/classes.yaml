@@ -1,0 +1,620 @@
+# CLASSES: __init__, self, attributes, properties, classmethod, staticmethod (about 20 cards).
+- id: classes-predict-init-self
+  type: predict
+  topic: classes
+  level: 1
+  prompt: What does this print?
+  code: |
+    class Trunk:
+        def __init__(self, name, calls):
+            self.name = name
+            self.calls = calls
+
+    t = Trunk("ic-ams-01", 17)
+    t.calls += 1
+    print(t.name, t.calls)
+  answer: "ic-ams-01 18"
+  explain: >-
+    Trunk(...) makes a new object and runs __init__ with self set to that object.
+    self.name = ... stores data on the object. Python has no `new` and no field list:
+    attributes appear when you assign them.
+  tags: [init, self]
+
+- id: classes-predict-method-call
+  type: predict
+  topic: classes
+  level: 2
+  prompt: What does this print?
+  code: |
+    class Trunk:
+        def __init__(self, name):
+            self.name = name
+
+        def describe(self):
+            return f"trunk {self.name}"
+
+    t = Trunk("ic-rtd-02")
+    print(t.describe())
+    print(Trunk.describe(t))
+  answer: |-
+    trunk ic-rtd-02
+    trunk ic-rtd-02
+  options:
+    - "trunk ic-rtd-02\ntrunk ic-rtd-02"
+    - "trunk ic-rtd-02\ntrunk t"
+    - "trunk ic-rtd-02\ntrunk Trunk"
+    - "trunk ic-rtd-02\ntrunk None"
+  explain: >-
+    t.describe() is short for Trunk.describe(t): Python passes the object as the first
+    argument, self. That's all self is, a normal parameter.
+  tags: [self, method]
+
+- id: classes-predict-shared-list
+  type: predict
+  topic: classes
+  level: 3
+  prompt: What does this print?
+  code: |
+    class Sbc:
+        alarms = []
+
+        def __init__(self, name):
+            self.name = name
+
+    a = Sbc("sbc-ic-01")
+    b = Sbc("sbc-ic-02")
+    a.alarms.append("high-503")
+    print(b.alarms)
+  answer: "['high-503']"
+  options:
+    - "['high-503']"
+    - "[]"
+    - "['sbc-ic-02']"
+    - "None"
+  explain: >-
+    alarms is a class attribute: one list for the class, shared by every object.
+    a.alarms.append changes that one list, so b sees it too. Give each object its own
+    list in __init__: self.alarms = [].
+  tags: [class-attribute, mutable]
+
+- id: classes-predict-property
+  type: predict
+  topic: classes
+  level: 2
+  prompt: What does this print?
+  code: |
+    class TrunkStats:
+        def __init__(self, ok, calls):
+            self.ok = ok
+            self.calls = calls
+
+        @property
+        def asr(self):
+            return self.ok / self.calls
+
+    s = TrunkStats(6, 15)
+    s.ok = 9
+    print(s.asr)
+  answer: "0.6"
+  options:
+    - "0.6"
+    - "0.4"
+    - "0.9"
+    - "None"
+  explain: >-
+    A property runs its method each time you read it, without brackets. s.asr is
+    worked out from the current ok and calls, so the change to 9 shows up: 9 / 15.
+  tags: [property]
+
+- id: classes-predict-classmethod
+  type: predict
+  topic: classes
+  level: 2
+  prompt: What does this print?
+  code: |
+    class Trunk:
+        def __init__(self, name, region):
+            self.name = name
+            self.region = region
+
+        @classmethod
+        def from_id(cls, trunk_id):
+            kind, region, number = trunk_id.split("-")
+            return cls(trunk_id, region)
+
+    t = Trunk.from_id("ic-ams-01")
+    print(t.name, t.region)
+  answer: "ic-ams-01 ams"
+  explain: >-
+    A classmethod gets the class as cls, so cls(...) builds a new object. This is
+    Python's way to have several constructors, like a static factory method in Java.
+  tags: [classmethod]
+
+- id: classes-predict-instance-shadows
+  type: predict
+  topic: classes
+  level: 2
+  prompt: What does this print?
+  code: |
+    class Check:
+        threshold = 0.65
+
+    a = Check()
+    b = Check()
+    a.threshold = 0.5
+    print(a.threshold, b.threshold, Check.threshold)
+  answer: "0.5 0.65 0.65"
+  options:
+    - "0.5 0.65 0.65"
+    - "0.5 0.5 0.5"
+    - "0.5 0.5 0.65"
+    - "0.65 0.65 0.65"
+  explain: >-
+    Assigning a.threshold creates an attribute on a only, which hides the class value
+    for a. b and the class still use 0.65. Compare the shared list: append changes the
+    shared object, = creates a new attribute.
+  tags: [class-attribute]
+
+- id: classes-mcq-self
+  type: mcq
+  topic: classes
+  level: 1
+  prompt: In t.describe(), what is self inside describe?
+  code: |
+    class Trunk:
+        def describe(self):
+            return "a trunk"
+
+    t = Trunk()
+    t.describe()
+  options:
+    - The object t
+    - The class Trunk
+    - A copy of t
+    - Nothing; self is a keyword
+  correct: 0
+  explain: >-
+    self is the object the method was called on, passed in for you. It is just a
+    name by convention, not a keyword, like `this` in Java but written out.
+  tags: [self]
+
+- id: classes-mcq-staticmethod
+  type: mcq
+  topic: classes
+  level: 2
+  prompt: Why is sip_class marked @staticmethod?
+  code: |
+    class Cdr:
+        @staticmethod
+        def sip_class(code):
+            return f"{code // 100}xx"
+
+    print(Cdr.sip_class(486))
+  options:
+    - It needs neither self nor cls; it just lives in the class
+    - It runs faster than a normal method
+    - It can only be called on the class, not on objects
+    - It makes the method private
+  correct: 0
+  explain: >-
+    A staticmethod is a plain function kept in the class because it belongs there.
+    It gets no self or cls. It can be called as Cdr.sip_class(486) or on an object.
+  tags: [staticmethod]
+
+- id: classes-mcq-underscore
+  type: mcq
+  topic: classes
+  level: 1
+  prompt: What does the underscore in self._token mean?
+  options:
+    - "Internal: please don't use it from outside. Python doesn't stop you."
+    - "Private: Python blocks access from outside the class."
+    - "It is a class attribute."
+    - "It can't be changed."
+  correct: 0
+  explain: >-
+    One leading underscore is a naming convention for "internal". Python has no
+    private keyword; anyone can still read obj._token. Tools and readers respect the
+    hint.
+  tags: [naming, internal]
+
+- id: classes-fill-property
+  type: fill
+  topic: classes
+  level: 1
+  prompt: Make asr readable without brackets.
+  code: |
+    class TrunkStats:
+        def __init__(self, ok, calls):
+            self.ok = ok
+            self.calls = calls
+
+        @____
+        def asr(self):
+            return self.ok / self.calls
+
+    print(TrunkStats(6, 15).asr)
+  blanks:
+    - answer: property
+      options: [property, staticmethod, classmethod, attribute]
+  expected_output: "0.4"
+  explain: >-
+    @property turns the method into something you read like an attribute: .asr, not
+    .asr(). Use it for values worked out from other fields.
+  tags: [property]
+
+- id: classes-fill-setter
+  type: fill
+  topic: classes
+  level: 2
+  prompt: Check the value whenever threshold is set.
+  code: |
+    class AlarmRule:
+        def __init__(self, threshold):
+            self.threshold = threshold
+
+        @property
+        def threshold(self):
+            return self._threshold
+
+        @threshold.____
+        def threshold(self, value):
+            if not 0 <= value <= 1:
+                raise ValueError("threshold must be 0..1")
+            self._threshold = value
+
+    rule = AlarmRule(0.65)
+    rule.threshold = 0.6
+    print(rule.threshold)
+  blanks:
+    - answer: setter
+      options: [setter, getter, property, set]
+  expected_output: "0.6"
+  explain: >-
+    @threshold.setter runs on every assignment, also the one in __init__. The value is
+    stored in _threshold, an internal name, so the property and the data don't clash.
+  tags: [property, setter, validation]
+
+- id: classes-fill-classmethod-cls
+  type: fill
+  topic: classes
+  level: 2
+  prompt: Build a TrunkCount from a "name:calls" string.
+  code: |
+    class TrunkCount:
+        def __init__(self, name, calls):
+            self.name = name
+            self.calls = calls
+
+        @classmethod
+        def parse(cls, text):
+            name, calls = text.split(":")
+            return ____(name, int(calls))
+
+    t = TrunkCount.parse("ic-rtd-02:15")
+    print(t.name, t.calls + 1)
+  blanks:
+    - answer: cls
+      options: [cls, self, "TrunkCount()", object]
+  expected_output: "ic-rtd-02 16"
+  explain: >-
+    cls is the class the method was called on, so cls(...) creates the object. A
+    subclass that calls parse gets an object of the subclass, which a hard-coded
+    class name would not give.
+  tags: [classmethod]
+
+- id: classes-spotbug-missing-self
+  type: spot_bug
+  topic: classes
+  level: 1
+  prompt: This should print "trunk ic-ams-01". Tap the line with the bug.
+  code: |
+    class Trunk:
+        def __init__(self, name):
+            self.name = name
+
+        def describe():
+            return f"trunk {self.name}"
+
+    print(Trunk("ic-ams-01").describe())
+  bug_line: 5
+  fixed_code: |
+    class Trunk:
+        def __init__(self, name):
+            self.name = name
+
+        def describe(self):
+            return f"trunk {self.name}"
+
+    print(Trunk("ic-ams-01").describe())
+  expected_output: "trunk ic-ams-01"
+  explain: >-
+    Every normal method needs self as its first parameter, because Python always
+    passes the object. Without it: "TypeError: describe() takes 0 positional
+    arguments but 1 was given".
+  tags: [self]
+
+- id: classes-spotbug-property-call
+  type: spot_bug
+  topic: classes
+  level: 2
+  prompt: This should print 0.4. Tap the line with the bug.
+  code: |
+    class TrunkStats:
+        def __init__(self, ok, calls):
+            self.ok = ok
+            self.calls = calls
+
+        @property
+        def asr(self):
+            return self.ok / self.calls
+
+    s = TrunkStats(6, 15)
+    print(s.asr())
+  bug_line: 11
+  fixed_code: |
+    class TrunkStats:
+        def __init__(self, ok, calls):
+            self.ok = ok
+            self.calls = calls
+
+        @property
+        def asr(self):
+            return self.ok / self.calls
+
+    s = TrunkStats(6, 15)
+    print(s.asr)
+  expected_output: "0.4"
+  explain: >-
+    s.asr already runs the property and gives 0.4. The extra () then tries to call
+    0.4: "TypeError: 'float' object is not callable".
+  tags: [property]
+
+- id: classes-spotbug-setter-recursion
+  type: spot_bug
+  topic: classes
+  level: 3
+  prompt: This should print 0.65. Tap the line with the bug.
+  code: |
+    class Check:
+        def __init__(self, threshold):
+            self.threshold = threshold
+
+        @property
+        def threshold(self):
+            return self._threshold
+
+        @threshold.setter
+        def threshold(self, value):
+            self.threshold = value
+
+    print(Check(0.65).threshold)
+  bug_line: 11
+  fixed_code: |
+    class Check:
+        def __init__(self, threshold):
+            self.threshold = threshold
+
+        @property
+        def threshold(self):
+            return self._threshold
+
+        @threshold.setter
+        def threshold(self, value):
+            self._threshold = value
+
+    print(Check(0.65).threshold)
+  expected_output: "0.65"
+  explain: >-
+    Inside the setter, self.threshold = value runs the setter again, forever, until
+    RecursionError. Store the value under another name, _threshold.
+  tags: [property, setter]
+
+- id: classes-parsons-init
+  type: parsons
+  topic: classes
+  level: 1
+  prompt: Put the lines in order so it prints "486 False".
+  lines:
+    - "class Cdr:"
+    - "    def __init__(self, row):"
+    - "        self.code = int(row[\"sip_code\"])"
+    - "        self.ok = self.code == 200"
+    - "c = Cdr({\"sip_code\": \"486\"})"
+    - "print(c.code, c.ok)"
+  distractors:
+    - "    def __init__(row):"
+    - "        self.ok = code == 200"
+  expected_output: "486 False"
+  explain: >-
+    __init__ needs self first. Inside it, the new attribute is self.code; a bare
+    `code` would be an unknown name. self.ok can use self.code because it was set on
+    the line before.
+  tags: [init, self]
+
+- id: classes-parsons-use-stats
+  type: parsons
+  topic: classes
+  level: 2
+  prompt: Put the lines in order to print the ASR of ic-rtd-02.
+  setup: |
+    from voicelab import load_cdrs
+    rows = load_cdrs()
+
+    class TrunkStats:
+        def __init__(self):
+            self.calls = 0
+            self.ok = 0
+
+        def add(self, sip_code):
+            self.calls += 1
+            self.ok += sip_code == "200"
+
+        @property
+        def asr(self):
+            return self.ok / self.calls
+  lines:
+    - "stats = {}"
+    - "for row in rows:"
+    - "    s = stats.setdefault(row[\"trunk\"], TrunkStats())"
+    - "    s.add(row[\"sip_code\"])"
+    - "print(f\"{stats['ic-rtd-02'].asr:.0%}\")"
+  distractors:
+    - "    s = stats.setdefault(row[\"trunk\"], TrunkStats)"
+    - "print(f\"{stats['ic-rtd-02'].asr():.0%}\")"
+  expected_output: "40%"
+  explain: >-
+    TrunkStats() creates an object; TrunkStats without brackets is the class itself.
+    The dict holds one object per trunk, and the asr property is read without
+    brackets.
+  tags: [objects, property]
+
+- id: classes-parsons-from-id
+  type: parsons
+  topic: classes
+  level: 2
+  prompt: Put the lines in order to build trunks from their ids and describe them.
+  setup: |
+    class Trunk:
+        def __init__(self, name, region):
+            self.name = name
+            self.region = region
+
+        @classmethod
+        def from_id(cls, trunk_id):
+            return cls(trunk_id, trunk_id.split("-")[1])
+
+        def describe(self):
+            return f"{self.name} in {self.region}"
+  lines:
+    - "ids = [\"ic-ams-01\", \"ic-rtd-02\"]"
+    - "trunks = [Trunk.from_id(i) for i in ids]"
+    - "for t in trunks:"
+    - "    print(t.describe())"
+  distractors:
+    - "trunks = [Trunk(i) for i in ids]"
+    - "    print(Trunk.describe())"
+  expected_output: |-
+    ic-ams-01 in ams
+    ic-rtd-02 in rtd
+  explain: >-
+    The classmethod is called on the class, Trunk.from_id(i), and builds each object.
+    Trunk(i) misses the region argument. Trunk.describe() has no object to work on.
+  tags: [classmethod, objects]
+
+- id: classes-write-trunk-stats
+  type: write
+  topic: classes
+  level: 2
+  prompt: Finish TrunkStats. add() counts a call; asr is a property (0.0 when there are no calls).
+  starter: |
+    from voicelab import load_cdrs
+
+    class TrunkStats:
+        def __init__(self, name):
+            self.name = name
+
+        def add(self, sip_code):
+            pass
+
+    s = TrunkStats("ic-rtd-02")
+    for row in load_cdrs():
+        if row["trunk"] == s.name:
+            s.add(row["sip_code"])
+    print(s.calls, s.ok)
+  tests: |
+    t = TrunkStats("x")
+    check(lambda: t.asr == 0.0, "no calls should give asr 0.0")
+    for code in ["200", "486", "200", "503"]:
+        t.add(code)
+    check(lambda: (t.calls, t.ok) == (4, 2), "4 calls with 2 answered")
+    check(lambda: t.asr == 0.5, "asr is 2 / 4 = 0.5")
+    check(lambda: isinstance(TrunkStats.__dict__.get("asr"), property), "asr should be a @property")
+  hint: >-
+    In __init__, also set self.calls = 0 and self.ok = 0. add() adds 1 to calls and
+    adds sip_code == "200" to ok. The asr property returns 0.0 when calls is 0.
+  solution: |
+    from voicelab import load_cdrs
+
+    class TrunkStats:
+        def __init__(self, name):
+            self.name = name
+            self.calls = 0
+            self.ok = 0
+
+        def add(self, sip_code):
+            self.calls += 1
+            self.ok += sip_code == "200"
+
+        @property
+        def asr(self):
+            return self.ok / self.calls if self.calls else 0.0
+
+    s = TrunkStats("ic-rtd-02")
+    for row in load_cdrs():
+        if row["trunk"] == s.name:
+            s.add(row["sip_code"])
+    print(s.calls, s.ok)
+  explain: >-
+    The object keeps its counters, and asr is always worked out from them, so it is
+    never out of date. Guarding against 0 calls avoids a ZeroDivisionError for a new
+    trunk.
+  tags: [property, objects]
+
+- id: classes-write-alarm-rule
+  type: write
+  topic: classes
+  level: 3
+  prompt: "Make threshold a property that only accepts 0..1 (else ValueError). Add from_percent(65) -> threshold 0.65."
+  starter: |
+    class AlarmRule:
+        def __init__(self, threshold):
+            self.threshold = threshold
+
+    rule = AlarmRule(0.65)
+    rule.threshold = 0.6
+    print(rule.threshold)
+  tests: |
+    def raises(action):
+        try:
+            action()
+        except ValueError:
+            return True
+        return False
+    rule = AlarmRule(0.65)
+    check(lambda: raises(lambda: setattr(rule, "threshold", 1.5)), "setting 1.5 should raise ValueError")
+    check(lambda: raises(lambda: AlarmRule(-0.1)), "AlarmRule(-0.1) should raise ValueError too")
+    rule.threshold = 0.6
+    check(lambda: rule.threshold == 0.6, "0.6 is fine")
+    check(lambda: AlarmRule.from_percent(65).threshold == 0.65, "from_percent(65) gives 0.65")
+  hint: >-
+    Add a @property threshold that returns self._threshold, and a @threshold.setter
+    that raises ValueError unless 0 <= value <= 1. from_percent is a @classmethod that
+    returns cls(percent / 100).
+  solution: |
+    class AlarmRule:
+        def __init__(self, threshold):
+            self.threshold = threshold
+
+        @property
+        def threshold(self):
+            return self._threshold
+
+        @threshold.setter
+        def threshold(self, value):
+            if not 0 <= value <= 1:
+                raise ValueError("threshold must be 0..1")
+            self._threshold = value
+
+        @classmethod
+        def from_percent(cls, percent):
+            return cls(percent / 100)
+
+    rule = AlarmRule(0.65)
+    rule.threshold = 0.6
+    print(rule.threshold)
+  explain: >-
+    The setter also runs in __init__, so a bad value can never get in, not even at
+    creation. This is the Pythonic way to do Java's getters and setters: plain
+    attributes first, a property only when you need a check.
+  tags: [property, setter, classmethod]
