@@ -124,6 +124,12 @@ type Project = { id: string; title: string; summary: string; files: Record<strin
 - A project is a list of `write` steps plus read-only `files` (written to `/home/pyodide/project/` before each run). `order` sets its place in the list. Progress lives in the `projects` table: `{ projectId, stepIndex, code, finished, updatedAt }`. The next step starts from that step's starter, a known-good version of the script so far.
 - **Export file** shares the script plus `voicelab.py` and the four data files, flat in one folder, through `navigator.share({ files })` (type `text/plain`, names kept). `voicelab.py` reads data from its own folder when there is no `data/` folder, so the script runs unchanged in a-Shell. Without file sharing, the script alone is copied to the clipboard.
 
+## Stats and backup (Phase 7)
+- Stats (`src/srs/stats.ts`, pure): streak and an 8-week calendar from the days with any answer; days per week against the PRD goal of 5; the 7-day pass rate counts only reviews of cards that were already learned (`stateBefore` = Review, logged since Phase 7), so first sightings and same-day repeats don't blur it; cards by state (new, learning incl. relearning, review, mastered = stability >= 21 days).
+- Charts use one validated sequential ramp (`--seq-1..4`, light and dark), a tap readout instead of hover, and a "Show the numbers" table.
+- Backup (`src/db/backup.ts`): `{ app: "pyreps", schemaVersion, exportedAt, data: {table: rows} }`, dates as ISO strings. `migrate()` runs version steps up to `BACKUP_VERSION` and refuses newer files; Zod checks the shape. Import replaces all tables in one transaction. Reset keeps `settings`.
+- Start-up: screens other than Today load on first use (code splitting), and Python starts once the page is idle. Measured on Lighthouse's mobile profile (slow 4G, 4x CPU): Performance 97–98, Accessibility 100, Best practices 100; the Start button is usable after about 1.5 s cold. Lighthouse 12+ has no PWA category any more; installability and offline use are covered by e2e tests and the manual iPhone checks.
+
 ## Grading (`src/cards/grading.ts`, pure functions)
 - **predict**: normalise both strings (strip trailing whitespace per line, strip trailing newlines, `\r\n`→`\n`) and compare exactly. The input field shows hints for multi-line answers. If `options` exist, it renders as multiple choice instead.
 - **mcq**: index equality.

@@ -15,7 +15,19 @@ After that, it works in airplane mode.
 
 **Updates:** open the app while you're online. If you see "A new version is ready", tap **Reload**.
 
-**Your data:** the Home Screen app keeps its own storage, separate from Safari. Removing the app from the Home Screen also removes your progress. A backup option is planned.
+**Your data:** the Home Screen app keeps its own storage, separate from Safari. Removing the app from the Home Screen also removes your progress, so save a backup now and then (Settings › Backup).
+
+## Daily use
+- **Today**: tap **Start today's reps**. About 10–20 cards: reviews that are due, then a few new ones, mixed across topics. A card you miss comes back once at the end.
+- Cards grade themselves: right the first time is Good, after one retry or the hint is Hard, wrong twice or "Show answer" is Again. After a card you can switch Good and Hard with **I guessed** / **I knew this**.
+- **Settings**: turn on the course topics you have finished (new cards only come from these), set new cards per day and max reviews, text size, and backups.
+- **Topics**: see what you have mastered (likely remembered for 3+ weeks) and **Practise 10** of one topic. Practice only changes the schedule of cards that are due.
+- **Projects**: build a small script step by step, then **Export file** and run it in a-Shell.
+- **Playground**: try anything. **Sample data** inserts ready-made examples.
+- **Stats**: streak, days per week (goal: 5), reviews passed in the last 7 days (goal: 80% or more), practice calendar, cards by state.
+
+## Backups
+Settings › Backup › **Save a backup file** shares `pyreps-backup-YYYY-MM-DD.json` (save it to iCloud Drive or Files). **Restore from a backup file** replaces everything on this phone after you confirm. **Delete all progress** keeps your settings.
 
 ## Run a project in a-Shell
 1. Finish a project in the Projects tab (or open the Playground), then tap **Export file**.
@@ -41,6 +53,13 @@ npm run build
 .venv/bin/python scripts/validate_content.py --verbose
 ```
 
+## Add cards
+1. Write cards in `content/cards/<topic>.yaml`, following `CONTENT.md` (one idea per card, lines of at most 60 characters, plain English).
+2. Put `__RUN__` where an output goes and let Python fill it in: `.venv/bin/python scripts/fill_outputs.py content/cards/<topic>.yaml`.
+3. Check everything: `.venv/bin/python scripts/validate_content.py --topic <topic>` (CPython), then `npm test` (also runs every card in the app's Pyodide) and `npm run build` (schema and line-length checks).
+4. Commit with `content: ...`. Pushing to `main` deploys it.
+
+## Notes
 The dev server has no service worker. To try offline mode on a computer, use `npm run build && npm run preview`.
 
 App icons are generated from `public/icons/icon.svg` with `npm run icons`.

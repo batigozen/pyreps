@@ -63,11 +63,11 @@ Goal: the four tap-friendly card types work with real content.
 **Done when:** Bati finishes `sbc-log-parser` on the phone and runs the exported file in a-Shell.
 
 ## Phase 7: Stats, backup, polish
-- [ ] Stats screen: streak calendar (8 weeks), 7-day pass rate, reviews per day, card states.
-- [ ] Backup export/import (share sheet), schema version + migration test, reset with confirmation sheet (no `confirm()`).
-- [ ] Accessibility pass (VoiceOver labels, focus order, 44 pt targets, contrast in both themes), `prefers-reduced-motion`.
-- [ ] Performance: Lighthouse PWA/performance on mobile ≥ 90, cold start < 2 s on throttled 4G (Python loads in background).
-- [ ] Final README: install, daily use, adding cards, running the validator.
+- [x] Stats screen: streak calendar (8 weeks), 7-day pass rate, reviews per day, card states.
+- [x] Backup export/import (share sheet), schema version + migration test, reset with confirmation sheet (no `confirm()`).
+- [x] Accessibility pass (VoiceOver labels, focus order, 44 pt targets, contrast in both themes), `prefers-reduced-motion`.
+- [x] Performance: Lighthouse PWA/performance on mobile ≥ 90, cold start < 2 s on throttled 4G (Python loads in background).
+- [x] Final README: install, daily use, adding cards, running the validator.
 **Done when:** everything in PRD "Success criteria" can be measured from the Stats screen and no known bugs remain.
 
 ## Optional Phase 8: Sync (only if Bati asks)
