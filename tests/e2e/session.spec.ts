@@ -5,6 +5,8 @@ const position = (page: Page) => page.getByTestId("session-position");
 /** Settings: keep only the given topic on (or none), so tests don't depend on the card bank. */
 async function onlyTopic(page: Page, keep: RegExp | null) {
   await page.goto("./#/settings");
+  // The list appears once the settings are read from the database.
+  await expect(page.getByRole("checkbox")).toHaveCount(18);
   for (const box of await page.getByRole("checkbox").all()) {
     const name =
       (await box.getAttribute("aria-label")) ?? (await box.locator("xpath=..").textContent()) ?? "";
@@ -99,6 +101,9 @@ test("settings change today's new cards and the text size", async ({ page }) => 
 test("practise a topic without changing the schedule of new cards", async ({ page }) => {
   await page.goto("./#/topics");
   await page.getByRole("link", { name: /Dictionaries in depth/ }).tap();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Dictionaries in depth" }),
+  ).toBeVisible();
   await expect(page.getByText(/^0 of \d+ mastered$/)).toBeVisible();
   await page.getByRole("button", { name: "Practise 10" }).tap();
   // Each missed card comes back once: 10 cards, 20 answers.
