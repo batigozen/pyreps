@@ -50,3 +50,27 @@ export async function shareFiles(
     return "failed";
   }
 }
+
+/** Desktop fallback: save one file with a download link (no new window). */
+export function downloadFile(name: string, text: string, type = "application/json") {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** Share one file, or download it where sharing files isn't possible. */
+export async function saveFile(
+  name: string,
+  text: string,
+): Promise<"shared" | "downloaded" | "cancelled"> {
+  const result = await shareFiles([{ name, text }], {
+    canShare: navigator.canShare?.bind(navigator),
+    share: navigator.share?.bind(navigator),
+  });
+  if (result === "shared" || result === "cancelled") return result;
+  downloadFile(name, text);
+  return "downloaded";
+}

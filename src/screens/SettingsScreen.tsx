@@ -1,5 +1,6 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { Link } from "react-router";
+import BackupSection from "../components/BackupSection.tsx";
 import Icon from "../components/Icon.tsx";
 import ScreenHeader from "../components/ScreenHeader.tsx";
 import { content } from "../content/content.ts";
@@ -182,6 +183,8 @@ export default function SettingsScreen() {
             : "The phone may delete your progress if space runs low. Add PyReps to the Home Screen to keep it safe."}
         </p>
       </section>
+
+      <BackupSection />
 
       <section aria-labelledby="testing" className={section}>
         <h2 id="testing" className="mb-2 text-[1.25rem] font-bold">
