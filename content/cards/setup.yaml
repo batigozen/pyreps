@@ -1,0 +1,485 @@
+# SETUP: script shape, __name__, sys.exit(main()), exit codes, venv and pip (about 20 cards).
+- id: setup-predict-name-main
+  type: predict
+  topic: setup
+  level: 1
+  prompt: You run this file with `python check.py`. What does it print?
+  code: |
+    print(__name__)
+  answer: "__main__"
+  explain: >-
+    Python sets __name__ to "__main__" in the file you run. In a file that is
+    imported, __name__ is the module's name instead.
+  tags: [name-main]
+
+- id: setup-predict-name-imported
+  type: predict
+  topic: setup
+  level: 2
+  prompt: What does this print?
+  code: |
+    source = (
+        'print("module:", __name__)\n'
+        'if __name__ == "__main__":\n'
+        '    print("running self-test")\n'
+    )
+    with open("trunk_tools.py", "w") as f:
+        f.write(source)
+
+    import trunk_tools
+    print("main:", __name__)
+  answer: |-
+    module: trunk_tools
+    main: __main__
+  options:
+    - "module: trunk_tools\nmain: __main__"
+    - "module: __main__\nrunning self-test\nmain: __main__"
+    - "module: trunk_tools\nrunning self-test\nmain: __main__"
+    - "main: __main__"
+  explain: >-
+    Importing a file runs its top-level code once, with __name__ set to the module
+    name. The `if __name__ == "__main__":` block is skipped, which is exactly why
+    scripts put their main code there.
+  tags: [name-main, import]
+
+- id: setup-predict-sys-exit-main
+  type: predict
+  topic: setup
+  level: 2
+  prompt: What does this print?
+  code: |
+    import sys
+
+    def main():
+        print("checked 3 trunks")
+        return 0
+
+    try:
+        sys.exit(main())
+    except SystemExit as e:
+        print("exit code", e.code)
+  answer: |-
+    checked 3 trunks
+    exit code 0
+  explain: >-
+    sys.exit(main()) runs main first, then exits with its return value. sys.exit works
+    by raising SystemExit, which is why it can be caught here; normally nothing catches
+    it and the process ends with that code.
+  tags: [sys-exit, exit-code]
+
+- id: setup-predict-exit-message
+  type: predict
+  topic: setup
+  level: 2
+  prompt: What does this print?
+  code: |
+    import sys
+    try:
+        sys.exit("PROM_URL is not set")
+    except SystemExit as e:
+        print(repr(e.code))
+  answer: "'PROM_URL is not set'"
+  options:
+    - "'PROM_URL is not set'"
+    - "1"
+    - "None"
+    - "2"
+  explain: >-
+    sys.exit with a string is a handy shortcut: if nothing catches it, Python prints
+    the message to stderr and the process exits with code 1.
+  tags: [sys-exit]
+
+- id: setup-predict-docstring
+  type: predict
+  topic: setup
+  level: 1
+  prompt: What does this print?
+  code: |
+    """Check ASR per trunk and exit with a Nagios code."""
+
+    print(__doc__)
+  answer: "Check ASR per trunk and exit with a Nagios code."
+  explain: >-
+    A string as the first statement of a file is the module docstring, stored in
+    __doc__. Tools like help() and IDEs show it. Say what the script does and how to
+    run it.
+  tags: [docstring]
+
+- id: setup-predict-returncode
+  type: predict
+  topic: setup
+  level: 2
+  prompt: What does this print? (This card runs on a real machine, not in the app.)
+  code: |
+    import subprocess, sys
+    r = subprocess.run([sys.executable, "-c",
+                        "import sys; sys.exit(3)"])
+    print(r.returncode, r.returncode == 0)
+  answer: "3 False"
+  options:
+    - "3 False"
+    - "0 True"
+    - "3 True"
+    - "1 False"
+  explain: >-
+    The exit code is how a program tells its caller whether it worked: 0 means
+    success, anything else means failure. Shells, cron, CI and Nagios all read it.
+  tags: [exit-code, cpython-only]
+
+- id: setup-mcq-shebang
+  type: mcq
+  topic: setup
+  level: 1
+  prompt: What does the first line `#!/usr/bin/env python3` do?
+  options:
+    - It lets you run ./check.py directly; the OS finds python3 on the PATH
+    - It imports python3
+    - Python needs it to start
+    - It makes the script faster
+  correct: 0
+  explain: >-
+    The shebang line is read by the operating system, not by Python. With it and
+    chmod +x, ./check.py works. `python3 check.py` ignores it.
+  tags: [shebang]
+
+- id: setup-mcq-venv
+  type: mcq
+  topic: setup
+  level: 1
+  prompt: Why make a virtual environment per project (python3 -m venv .venv)?
+  options:
+    - Each project gets its own packages and versions, apart from the system Python
+    - It makes Python run faster
+    - pip only works inside a venv
+    - It backs up the project
+  correct: 0
+  explain: >-
+    A venv is a folder with its own python and site-packages. Two projects can use
+    different versions of the same package without breaking each other or the OS.
+  tags: [venv]
+
+- id: setup-mcq-pip-freeze
+  type: mcq
+  topic: setup
+  level: 2
+  prompt: Which command saves the exact package versions so a colleague can install the same ones?
+  options:
+    - pip freeze > requirements.txt
+    - pip list --save
+    - python -m venv --save
+    - pip install --record
+  correct: 0
+  explain: >-
+    pip freeze prints every installed package with its exact version. The colleague
+    then runs pip install -r requirements.txt in their own venv.
+  tags: [pip]
+
+- id: setup-fill-name-guard
+  type: fill
+  topic: setup
+  level: 1
+  prompt: Run main only when the file is run directly.
+  code: |
+    def main():
+        print("checking trunks")
+
+    if __name__ == "____":
+        main()
+  blanks:
+    - answer: "__main__"
+      options: ["__main__", "main", "__name__", "__init__"]
+  expected_output: "checking trunks"
+  explain: >-
+    The guard is true when you run the file and false when another file imports it.
+    So the file works both as a script and as a module of helper functions.
+  tags: [name-main]
+
+- id: setup-fill-sys-exit
+  type: fill
+  topic: setup
+  level: 2
+  prompt: Pass main's return value on as the exit code.
+  code: |
+    import sys
+
+    def main():
+        print("all trunks OK")
+        return 0
+
+    if __name__ == "__main__":
+        sys.____(main())
+  blanks:
+    - answer: exit
+      options: [exit, quit, end, stop]
+  expected_output: "all trunks OK"
+  explain: >-
+    sys.exit(main()) is the standard last line of a script: main returns a number, and
+    the process exits with it. quit() and exit() without sys are for the
+    interactive shell only.
+  tags: [sys-exit]
+
+- id: setup-fill-argv
+  type: fill
+  topic: setup
+  level: 2
+  prompt: Use the command-line arguments when no list is given.
+  code: |
+    import sys
+
+    def main(argv=None):
+        if argv is None:
+            argv = sys.____[1:]
+        print("trunks:", argv)
+        return 0
+
+    main(["ic-ams-01", "ic-rtd-02"])
+  blanks:
+    - answer: argv
+      options: [argv, args, path, params]
+  expected_output: "trunks: ['ic-ams-01', 'ic-rtd-02']"
+  explain: >-
+    sys.argv[0] is the script name, and the arguments start at [1:]. Taking argv as a
+    parameter lets tests pass their own list.
+  tags: [argv]
+
+- id: setup-spotbug-guard-typo
+  type: spot_bug
+  topic: setup
+  level: 1
+  prompt: Running this file should print "checking trunks". Tap the line with the bug.
+  code: |
+    def main():
+        print("checking trunks")
+
+    if __name__ == "main":
+        main()
+  bug_line: 4
+  fixed_code: |
+    def main():
+        print("checking trunks")
+
+    if __name__ == "__main__":
+        main()
+  expected_output: "checking trunks"
+  explain: >-
+    The value is "__main__", with two underscores on each side. With "main" the
+    condition is never true, so the script quietly does nothing.
+  tags: [name-main]
+
+- id: setup-spotbug-lost-exit-code
+  type: spot_bug
+  topic: setup
+  level: 2
+  prompt: Nagios should get exit code 2. Tap the line with the bug.
+  code: |
+    import sys
+
+    def main():
+        print("CRITICAL asr=40% on ic-rtd-02")
+        return 2
+
+    try:
+        main()
+    except SystemExit as e:
+        print("exit code", e.code)
+  bug_line: 8
+  fixed_code: |
+    import sys
+
+    def main():
+        print("CRITICAL asr=40% on ic-rtd-02")
+        return 2
+
+    try:
+        sys.exit(main())
+    except SystemExit as e:
+        print("exit code", e.code)
+  expected_output: |-
+    CRITICAL asr=40% on ic-rtd-02
+    exit code 2
+  explain: >-
+    A return value alone isn't the exit code. Without sys.exit(...), the script ends
+    with 0 and the monitoring shows OK during an outage.
+  tags: [sys-exit, exit-code]
+
+- id: setup-spotbug-exit-uncalled
+  type: spot_bug
+  topic: setup
+  level: 2
+  prompt: main should run and the exit code should be 0. Tap the line with the bug.
+  code: |
+    import sys
+
+    def main():
+        print("checked 3 trunks")
+        return 0
+
+    try:
+        sys.exit(main)
+    except SystemExit as e:
+        print("exit code is 0:", e.code == 0)
+  bug_line: 8
+  fixed_code: |
+    import sys
+
+    def main():
+        print("checked 3 trunks")
+        return 0
+
+    try:
+        sys.exit(main())
+    except SystemExit as e:
+        print("exit code is 0:", e.code == 0)
+  expected_output: |-
+    checked 3 trunks
+    exit code is 0: True
+  explain: >-
+    sys.exit(main) passes the function itself, so main never runs. Python then
+    prints the function to stderr and exits with 1. The brackets call it.
+  tags: [sys-exit]
+
+- id: setup-parsons-script-shape
+  type: parsons
+  topic: setup
+  level: 2
+  prompt: Put the lines in order. The docstring must be the module docstring.
+  lines:
+    - "\"\"\"Check ASR per trunk and exit with a Nagios code.\"\"\""
+    - "import sys"
+    - "def main():"
+    - "    print(\"OK asr=81%\")"
+    - "    return 0"
+    - "if __name__ == \"__main__\":"
+    - "    sys.exit(main())"
+  distractors:
+    - "    main()"
+  expected_output: "OK asr=81%"
+  explain: >-
+    The usual script shape: docstring, imports, functions, then the guard with
+    sys.exit(main()). The docstring only counts if it comes first.
+  tags: [name-main, sys-exit, docstring]
+
+- id: setup-parsons-main-argv
+  type: parsons
+  topic: setup
+  level: 2
+  prompt: Put the lines in order so main can be tested with a list.
+  setup: |
+    import sys
+  lines:
+    - "def main(argv=None):"
+    - "    argv = sys.argv[1:] if argv is None else argv"
+    - "    print(\"trunks:\", argv)"
+    - "    return 0 if argv else 1"
+    - "code = main([\"ic-ams-01\", \"ic-rtd-02\"])"
+    - "print(\"exit code\", code)"
+  distractors:
+    - "    argv = sys.argv"
+  expected_output: |-
+    trunks: ['ic-ams-01', 'ic-rtd-02']
+    exit code 0
+  explain: >-
+    sys.argv includes the script name at [0], so take [1:]. Returning 1 when no
+    trunks are given tells the caller that something was wrong.
+  tags: [argv, exit-code]
+
+- id: setup-parsons-exit-code
+  type: parsons
+  topic: setup
+  level: 1
+  prompt: Put the lines in order to exit with 1 when a trunk failed.
+  setup: |
+    import sys
+  lines:
+    - "failed = [\"ic-rtd-02\"]"
+    - "code = 1 if failed else 0"
+    - "try:"
+    - "    sys.exit(code)"
+    - "except SystemExit as e:"
+    - "    print(\"exit code\", e.code)"
+  distractors:
+    - "code = 0 if failed else 1"
+  expected_output: "exit code 1"
+  explain: >-
+    A non-empty list is truthy, so failed gives code 1. In a real script, nothing
+    catches SystemExit and the shell sees 1. The try here only makes it visible.
+  tags: [exit-code]
+
+- id: setup-write-check-names
+  type: write
+  topic: setup
+  level: 2
+  prompt: "main(argv) checks the trunk names. Print each unknown name and return 1; return 0 when all are known."
+  starter: |
+    import sys
+
+    KNOWN = {"ic-ams-01", "ic-rtd-02", "biz-trunk-07"}
+
+    def main(argv=None):
+        if argv is None:
+            argv = sys.argv[1:]
+        return 0
+
+    print("exit code", main(["ic-ams-01", "ic-xxx-99"]))
+  tests: |
+    import io, contextlib
+    def run(argv):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = main(argv)
+        return code, out.getvalue()
+    check(lambda: run(["ic-ams-01", "ic-rtd-02"])[0] == 0, "known names return 0")
+    check(lambda: run(["ic-ams-01", "ic-xxx-99"])[0] == 1, "an unknown name returns 1")
+    check(lambda: "ic-xxx-99" in run(["ic-xxx-99"])[1], "the unknown name is printed")
+    check(lambda: run([])[0] == 0, "no names is fine: return 0")
+  hint: >-
+    unknown = [name for name in argv if name not in KNOWN]. Print each one, then
+    return 1 if unknown else 0.
+  solution: |
+    import sys
+
+    KNOWN = {"ic-ams-01", "ic-rtd-02", "biz-trunk-07"}
+
+    def main(argv=None):
+        if argv is None:
+            argv = sys.argv[1:]
+        unknown = [name for name in argv if name not in KNOWN]
+        for name in unknown:
+            print("unknown trunk:", name)
+        return 1 if unknown else 0
+
+    print("exit code", main(["ic-ams-01", "ic-xxx-99"]))
+  explain: >-
+    main(argv) returning a number is the shape every script in the course uses. The
+    real file ends with `if __name__ == "__main__": sys.exit(main())`.
+  tags: [argv, exit-code]
+
+- id: setup-write-worst-code
+  type: write
+  topic: setup
+  level: 2
+  prompt: "Return one exit code for many checks: the worst wins (2 > 1 > 0). No checks at all is 3 (UNKNOWN)."
+  starter: |
+    def overall(codes):
+        """overall([0, 1, 0]) -> 1"""
+        return 0
+
+    print(overall([0, 1, 0]), overall([0, 2, 1]), overall([]))
+  tests: |
+    check(lambda: overall([0, 0]) == 0, "all OK gives 0")
+    check(lambda: overall([0, 1, 0]) == 1, "one WARNING gives 1")
+    check(lambda: overall([1, 2, 0]) == 2, "one CRITICAL gives 2")
+    check(lambda: overall([]) == 3, "no checks gives 3 (UNKNOWN)")
+  hint: >-
+    If the list is empty, return 3. Otherwise max(codes) is the worst code.
+  solution: |
+    def overall(codes):
+        if not codes:
+            return 3
+        return max(codes)
+
+    print(overall([0, 1, 0]), overall([0, 2, 1]), overall([]))
+  explain: >-
+    One script often runs several checks and must report one result. Taking the worst
+    makes one CRITICAL trunk turn the whole check red. "No data" isn't OK: UNKNOWN.
+  tags: [exit-code, nagios]
