@@ -1,0 +1,355 @@
+# AUTOMATION deck: files, cleanup scripts, subprocess, cron, safe writes, logging
+# (about 15 cards). subprocess cards are tap-only and tagged cpython-only.
+- id: automation-predict-glob-logs
+  type: predict
+  topic: automation
+  level: 2
+  prompt: What does this print?
+  code: |
+    from pathlib import Path
+    logs = Path("sbc-logs")
+    logs.mkdir(exist_ok=True)
+    for name in ["sbc-ic-01.log", "sbc-ic-02.log", "notes.txt"]:
+        (logs / name).write_text("x\n")
+    print(sorted(p.stem for p in logs.glob("*.log")))
+  answer: "['sbc-ic-01', 'sbc-ic-02']"
+  options:
+    - "['sbc-ic-01', 'sbc-ic-02']"
+    - "['sbc-ic-01.log', 'sbc-ic-02.log']"
+    - "['notes', 'sbc-ic-01', 'sbc-ic-02']"
+    - "['sbc-logs/sbc-ic-01', 'sbc-logs/sbc-ic-02']"
+  explain: >-
+    glob("*.log") only matches files ending in .log, and .stem drops the extension.
+    mkdir(exist_ok=True) doesn't fail when the folder is already there, so the script
+    can run every night.
+  tags: [pathlib, glob]
+
+- id: automation-predict-rotate
+  type: predict
+  topic: automation
+  level: 2
+  prompt: What does this print?
+  code: |
+    moves = [(f"sbc.log.{i}", f"sbc.log.{i + 1}")
+             for i in range(2, 0, -1)]
+    print(moves)
+  answer: "[('sbc.log.2', 'sbc.log.3'), ('sbc.log.1', 'sbc.log.2')]"
+  options:
+    - "[('sbc.log.2', 'sbc.log.3'), ('sbc.log.1', 'sbc.log.2')]"
+    - "[('sbc.log.1', 'sbc.log.2'), ('sbc.log.2', 'sbc.log.3')]"
+    - "[('sbc.log.2', 'sbc.log.3')]"
+    - "[('sbc.log.3', 'sbc.log.2'), ('sbc.log.2', 'sbc.log.1')]"
+  explain: >-
+    Log rotation renames from the oldest end first: .2 to .3, then .1 to .2. Going the
+    other way would overwrite .2 before it was moved. range(2, 0, -1) counts down.
+  tags: [range, rotation]
+
+- id: automation-predict-check-error
+  type: predict
+  topic: automation
+  level: 2
+  prompt: What does this print? (This card runs on a real machine, not in the app.)
+  code: |
+    import subprocess
+    try:
+        subprocess.run(["false"], check=True)
+        print("all good")
+    except subprocess.CalledProcessError as e:
+        print("failed with", e.returncode)
+  answer: "failed with 1"
+  options:
+    - "failed with 1"
+    - "all good"
+    - "failed with 0"
+    - "failed with None"
+  explain: >-
+    `false` is a tiny Unix command that always exits with 1. check=True turns any
+    non-zero exit code into CalledProcessError, which carries the code.
+  tags: [subprocess, exit-code, cpython-only]
+
+- id: automation-predict-with-closed
+  type: predict
+  topic: automation
+  level: 1
+  prompt: What does this print?
+  code: |
+    from pathlib import Path
+    with open("report.txt", "w") as f:
+        f.write("ASR 59%\n")
+    print(f.closed, Path("report.txt").read_text().strip())
+  answer: "True ASR 59%"
+  explain: >-
+    The with block closes the file when it ends, also on an error, so the data is
+    written out. "w" replaces the file; "a" would add to the end.
+  tags: [with, files]
+
+- id: automation-predict-stderr-log
+  type: predict
+  topic: automation
+  level: 2
+  prompt: What appears on stdout (the normal output)?
+  code: |
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    logging.info("deleted 3 old backups")
+    print("done")
+  answer: "done"
+  options:
+    - "done"
+    - "INFO:root:deleted 3 old backups\ndone"
+    - "deleted 3 old backups\ndone"
+    - "INFO deleted 3 old backups"
+  explain: >-
+    logging writes to stderr by default; print writes to stdout. Keeping logs on stderr
+    means `script.py > result.txt` or a pipe only gets the real output, while cron
+    mail and journald still show the logs.
+  tags: [logging, stderr]
+
+- id: automation-mcq-cron-15
+  type: mcq
+  topic: automation
+  level: 1
+  prompt: "When does the cron line `*/15 * * * * /opt/voice/asrcheck.py` run?"
+  options:
+    - Every 15 minutes
+    - At minute 15 of every hour
+    - Every 15 hours
+    - On the 15th of every month
+  correct: 0
+  explain: >-
+    The five fields are minute, hour, day of month, month, day of week. */15 in the
+    minute field means 0, 15, 30, 45. `15 * * * *` would be minute 15 only.
+  tags: [cron]
+
+- id: automation-mcq-cron-weekly
+  type: mcq
+  topic: automation
+  level: 2
+  prompt: "When does `0 3 * * 1 /opt/voice/backup.sh` run?"
+  options:
+    - At 03:00 every Monday
+    - At 00:03 on the 1st of every month
+    - Every 3 hours on Mondays
+    - At 03:00 on January 1st
+  correct: 0
+  explain: >-
+    Minute 0, hour 3, any day, any month, day of week 1 (Monday; 0 or 7 is Sunday).
+    Night-time weekly jobs like backups often look like this.
+  tags: [cron]
+
+- id: automation-mcq-atomic
+  type: mcq
+  topic: automation
+  level: 2
+  prompt: Why write report.json.tmp first and then os.replace it onto report.json?
+  options:
+    - Readers never see a half-written file; the rename is all or nothing
+    - Writing a .tmp file is faster
+    - os.replace compresses the file
+    - JSON files must have a .tmp copy
+  correct: 0
+  explain: >-
+    If the script crashes while writing, only the .tmp file is broken and the old
+    report stays. os.replace swaps the file in one step on the same disk.
+  tags: [files, atomic]
+
+- id: automation-fill-glob
+  type: fill
+  topic: automation
+  level: 1
+  prompt: List the CSV files in the data folder.
+  code: |
+    from pathlib import Path
+    files = Path("data").____("*.csv")
+    print(sorted(p.name for p in files))
+  blanks:
+    - answer: glob
+      options: [glob, find, list, match]
+  expected_output: "['cdrs.csv']"
+  explain: >-
+    Path.glob(pattern) finds matching files in that folder; rglob also searches the
+    subfolders. It replaces many small `ls | grep` shell steps.
+  tags: [pathlib, glob]
+
+- id: automation-fill-check
+  type: fill
+  topic: automation
+  level: 2
+  prompt: Stop with an error if the command fails. (Runs on a real machine.)
+  code: |
+    import subprocess
+    r = subprocess.run(["true"], ____=True)
+    print("exit code", r.returncode)
+  blanks:
+    - answer: check
+      options: [check, verify, strict, raise_error]
+  expected_output: "exit code 0"
+  explain: >-
+    check=True raises CalledProcessError on a non-zero exit code. `true` always exits
+    with 0, so here it passes and the script goes on.
+  tags: [subprocess, cpython-only]
+
+- id: automation-spotbug-append-mode
+  type: spot_bug
+  topic: automation
+  level: 2
+  prompt: The state file should hold one line, however often the job runs. Tap the line with the bug.
+  code: |
+    from pathlib import Path
+    for run in range(2):
+        with open("state.txt", "a") as f:
+            f.write("last_run=ok\n")
+    print(len(Path("state.txt").read_text().splitlines()))
+  bug_line: 3
+  fixed_code: |
+    from pathlib import Path
+    for run in range(2):
+        with open("state.txt", "w") as f:
+            f.write("last_run=ok\n")
+    print(len(Path("state.txt").read_text().splitlines()))
+  expected_output: "1"
+  explain: >-
+    "a" appends, so every run adds a line and the file grows forever. "w" replaces the
+    content. Use "a" only for logs.
+  tags: [files]
+
+- id: automation-spotbug-keep-newest
+  type: spot_bug
+  topic: automation
+  level: 2
+  prompt: Keep the 2 newest backups and delete the rest. Tap the line with the bug.
+  code: |
+    backups = ["db-2026-10-17.tar", "db-2026-10-18.tar",
+               "db-2026-10-19.tar", "db-2026-10-20.tar",
+               "db-2026-10-21.tar"]
+    keep = 2
+    delete = sorted(backups)[:keep]
+    print(delete)
+  bug_line: 5
+  fixed_code: |
+    backups = ["db-2026-10-17.tar", "db-2026-10-18.tar",
+               "db-2026-10-19.tar", "db-2026-10-20.tar",
+               "db-2026-10-21.tar"]
+    keep = 2
+    delete = sorted(backups)[:-keep]
+    print(delete)
+  expected_output: "['db-2026-10-17.tar', 'db-2026-10-18.tar', 'db-2026-10-19.tar']"
+  explain: >-
+    ISO dates sort in time order, so the newest are at the end. [:-keep] is "all but
+    the last 2". [:keep] deleted only the 2 oldest and left too many. Print the list
+    first (a dry run) before deleting for real.
+  tags: [slicing, cleanup]
+
+- id: automation-parsons-cleanup-cli
+  type: parsons
+  topic: automation
+  level: 2
+  prompt: Put the lines in order for a cleanup tool with a --keep option.
+  setup: |
+    import argparse
+    backups = ["db-2026-10-17.tar", "db-2026-10-18.tar",
+               "db-2026-10-19.tar", "db-2026-10-20.tar",
+               "db-2026-10-21.tar"]
+  lines:
+    - "parser = argparse.ArgumentParser(prog=\"cleanup\")"
+    - "parser.add_argument(\"--keep\", type=int, default=2)"
+    - "args = parser.parse_args([\"--keep\", \"3\"])"
+    - "old = sorted(backups)[:-args.keep]"
+    - "print(\"delete:\", old)"
+  distractors:
+    - "old = sorted(backups)[args.keep:]"
+  expected_output: "delete: ['db-2026-10-17.tar', 'db-2026-10-18.tar']"
+  explain: >-
+    A setting like --keep belongs in an option with a safe default, not in the code.
+    type=int is needed for the slice. [args.keep:] would delete the newest instead.
+  tags: [argparse, slicing]
+
+- id: automation-write-atomic
+  type: write
+  topic: automation
+  level: 2
+  prompt: Write the text to a .tmp file next to path, then move it onto path with os.replace.
+  starter: |
+    import os
+    from pathlib import Path
+
+    def write_atomic(path, text):
+        with open(path, "w") as f:
+            f.write(text)
+
+    out = Path("atomic-demo")
+    out.mkdir(exist_ok=True)
+    write_atomic(out / "state.txt", "last_run=ok\n")
+    print((out / "state.txt").read_text().strip())
+  tests: |
+    p = Path("atomic-demo") / "t.txt"
+    write_atomic(p, "v1")
+    check(lambda: p.read_text() == "v1", "the file holds the new text")
+    try:
+        write_atomic(p, None)
+    except TypeError:
+        pass
+    check(lambda: p.read_text() == "v1", "a failed write must keep the old content")
+    write_atomic(p, "v2")
+    check(lambda: p.read_text() == "v2", "a second write replaces the content")
+  hint: >-
+    tmp = Path(str(path) + ".tmp"). Write the text to tmp inside `with open(tmp, "w")`,
+    then call os.replace(tmp, path).
+  solution: |
+    import os
+    from pathlib import Path
+
+    def write_atomic(path, text):
+        tmp = Path(str(path) + ".tmp")
+        with open(tmp, "w") as f:
+            f.write(text)
+        os.replace(tmp, path)
+
+    out = Path("atomic-demo")
+    out.mkdir(exist_ok=True)
+    write_atomic(out / "state.txt", "last_run=ok\n")
+    print((out / "state.txt").read_text().strip())
+  explain: >-
+    open(path, "w") empties the file first, so a crash halfway leaves it empty. With
+    the .tmp file, the real file changes only once the new content is complete.
+  tags: [files, atomic]
+
+- id: automation-write-to-delete
+  type: write
+  topic: automation
+  level: 3
+  prompt: "From names like db-2026-10-21.tar, return the ones to delete (sorted), keeping the newest keep. Ignore other names."
+  starter: |
+    import re
+
+    def to_delete(names, keep):
+        return []
+
+    names = ["db-2026-10-19.tar", "notes.txt",
+             "db-2026-10-21.tar", "db-2026-10-20.tar"]
+    print(to_delete(names, 1))
+  tests: |
+    check(lambda: to_delete(names, 1) == ["db-2026-10-19.tar", "db-2026-10-20.tar"], "keep 1: delete the two older backups")
+    check(lambda: to_delete(names, 5) == [], "keep more than there are: delete nothing")
+    check(lambda: "notes.txt" not in to_delete(names, 0), "never delete files that aren't backups")
+    check(lambda: to_delete(names, 0) == ["db-2026-10-19.tar", "db-2026-10-20.tar", "db-2026-10-21.tar"], "keep 0: delete every backup")
+  hint: >-
+    Keep only names matching r"db-\d{4}-\d{2}-\d{2}\.tar", sort them, and return the
+    part before the last keep items. Careful: [:-0] is empty, so handle keep == 0.
+  solution: |
+    import re
+
+    BACKUP = re.compile(r"db-\d{4}-\d{2}-\d{2}\.tar")
+
+    def to_delete(names, keep):
+        backups = sorted(n for n in names
+                         if BACKUP.fullmatch(n))
+        return backups[:max(len(backups) - keep, 0)]
+
+    names = ["db-2026-10-19.tar", "notes.txt",
+             "db-2026-10-21.tar", "db-2026-10-20.tar"]
+    print(to_delete(names, 1))
+  explain: >-
+    A cleanup script must be strict about what it deletes: fullmatch on a pattern, not
+    "ends with .tar". len - keep avoids the [:-0] trap, which would return nothing.
+  tags: [regex, slicing, cleanup]
